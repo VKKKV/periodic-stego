@@ -13,6 +13,7 @@ import {
 import { drawProfiles } from "../render/profile";
 import { disparityCanvas } from "../render/disparity";
 import { bindStaticText, getLocale, setLocale, t } from "../i18n";
+import licenseUrl from "../../../LICENSE?url";
 interface Callbacks {
   onAnalysis: (p: AnalysisParams) => void;
   onDisplay: (p: DisplayParams) => void;
@@ -55,7 +56,7 @@ export function mountUI(
     <div class="canvas-stage" data-testid="drop-zone"><div id="empty"><span class="eyebrow">START AN EXPERIMENT</span><h1>Find the rhythm.<br>Question the signal.</h1><p>Drop a PNG or JPEG here.<br>Inspect repeated structure, one parameter at a time.</p><p class="privacy">Your image stays in this browser.<br>No upload. No account. No cloud analysis.</p></div><canvas id="main-canvas" data-testid="main-canvas" aria-label="Interactive image diagnostic" hidden></canvas></div>
     <div class="readout"><output id="cursor">Move over a plot for coordinates and values</output><span id="units">original pixels</span></div>
     <div class="section-title profile-heading">AXIS PROFILES <span>FFT / CIRCULAR AUTOCORRELATION</span></div><div class="profiles"><canvas id="profile-canvas" data-testid="profile-canvas" aria-label="X and Y FFT and autocorrelation profiles" hidden></canvas><p id="profile-empty" class="hint">Numerical profiles appear after an image is analyzed. Dashed amber lines mark detection thresholds.</p></div>
-    <footer><span id="status" data-testid="status" role="status"></span><button id="debug">Copy debug info</button></footer></main>
+    <footer><span id="status" data-testid="status" role="status"></span><button id="debug">Copy debug info</button><div class="legal"><span>© 2026 periodic-stego contributors</span> · <a href="${licenseUrl}" download="LICENSE.txt">AGPL-3.0-only</a> · <a href="https://github.com/VKKKV/periodic-stego" target="_blank" rel="noopener noreferrer">Source code</a><span class="legal-note">No warranty. Redistribution permitted under AGPLv3.</span></div></footer></main>
     <aside class="findings"><div class="section-title">FINDINGS <span id="candidate-count">—</span></div><p id="result-note" class="hint" hidden>Previous result · not current; wait for a successful analysis.</p><div id="verdict"><h2>Evidence, not a verdict.</h2><p>A periodic peak can reveal repeated structure. It cannot prove a hidden message.</p></div><div id="stats"></div><div id="candidates"></div><details open class="caveats"><summary>Interpretation & limitations</summary><ul id="warnings"><li>JPEG blocks, resizing, scanlines and ordinary textures can also produce peaks.</li><li>Confidence describes signal strength, not steganography probability.</li></ul></details></aside></div>`;
   const localizeStatic = bindStaticText(root);
   let statusText = "",

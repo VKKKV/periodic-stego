@@ -2,6 +2,16 @@
 
 Verified locally on 2026-09-09 with Node 26.8.1, npm 12.0.2, Python 3.14.7 and Playwright Chromium. CI uses Node 24 and Python 3.12. This records observed results, not a claim of complete numerical or security coverage.
 
+## AGPLv3 licensing and release checks
+
+The project now declares **AGPL-3.0-only** in the README, Python metadata and npm package/lock metadata. The root `LICENSE` is the complete [SPDX AGPL-3.0-only text](https://github.com/spdx/license-list-data/blob/main/text/AGPL-3.0-only.txt), byte-identical to the local system's SPDX copy (SHA-256 `d8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee`). Dependency licenses remain unchanged.
+
+- After adding the legal footer and license asset: formatting, **67 Web unit tests**, the TypeScript/Vite production build, **22 Chromium cases** and **37 Python tests** passed. The new browser test fetches and downloads the full license, byte-compares both with `LICENSE`, checks English/Chinese source/no-warranty notices, and verifies a 390-pixel layout.
+- `python -m build --no-isolation --outdir /tmp/periodic-stego-agpl-dist` built an sdist and wheel with setuptools 84.0.0. Inspection confirmed `License-Expression: AGPL-3.0-only`, `License-File: LICENSE`, and byte-identical license content in both archives. The build-system minimum is setuptools 77.0.3 for PEP 639 license metadata. The globally installed SCM helper logged a nonfatal Git-discovery warning while building from the sdist; a separate isolated-source build and archive checks also passed.
+- Vite emits the root license as a local asset linked by the footer, downloadable as `LICENSE.txt`. The production asset is byte-identical to the root license; the browser test verifies same-origin access. The source link points to the repository; publishers of modified versions must point it at their corresponding source and preserve the applicable notices.
+
+These are implementation and packaging checks, not legal advice or a complete license-compliance audit. Publication status is separate from local tests; consult the workflow for the exact pushed commit.
+
 ## Magic Eye continuation — local evidence before licensing
 
 The browser's FFT-only strong-signal gate missed a supplied 2000 × 1000 RGB random-dot image despite a visible circular-AC candidate. Native row matching now provides independent evidence without weakening spectral concentration. The source image is not checked into the repository.

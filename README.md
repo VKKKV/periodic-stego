@@ -4,6 +4,8 @@ A browser-local workbench for investigating periodic structure in PNG and JPEG i
 
 [Open the workbench](https://vkkkv.github.io/periodic-stego/)
 
+License: [GNU AGPLv3 only](LICENSE) (`AGPL-3.0-only`).
+
 ![FFT workbench with a synthetic 16-pixel signal](docs/workstation.png)
 
 A periodic peak is evidence of repeated structure, **not proof of hidden text**. This tool does not decode payloads or guess their encoding.
@@ -134,3 +136,13 @@ The CLI uses mean removal, no window and no resampling. For numerical comparison
 The `Verify and deploy Pages` GitHub Actions workflow runs Python tests, formatting checks, web unit tests, production build and Chromium smoke tests before publishing. The deploy job is restricted to `main` and has only Pages/OIDC write permissions. Actions are pinned to commit SHAs. Set repository Pages source to **GitHub Actions**. Pull requests run verification without deployment.
 
 The site is intended for local files, CTF handouts and authorized forensic analysis. It neither scans external targets nor performs payload recovery.
+
+## License
+
+Copyright (C) 2026 periodic-stego contributors.
+
+Unless a file states otherwise, this project's code, documentation and generated synthetic fixtures are licensed under the **GNU Affero General Public License, version 3 only** (`AGPL-3.0-only`). See [LICENSE](LICENSE) for the full terms. The software is provided **without warranty**.
+
+You may use, modify and redistribute covered work under that license. When distributing a covered build, provide the corresponding source as required by the license. If you modify the program and let users interact with it remotely over a network, section 13 requires a prominent offer for those users to obtain the corresponding source of your version. This paragraph is a summary; the license text governs.
+
+The workbench footer links to the license and [source repository](https://github.com/VKKKV/periodic-stego). Production builds bundle the full license as an asset, downloadable as `LICENSE.txt`; Python distributions include the same license. When publishing a fork or modified build, update the source link to your corresponding source and retain the applicable notices and license. Dependencies retain their own licenses; the referenced stereogram projects were studied, not vendored or relicensed. Opening or exporting an image does not by itself place that image under AGPLv3.

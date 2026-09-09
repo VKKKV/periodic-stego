@@ -297,6 +297,7 @@ footer {
   padding: 14px 18px;
   border-top: 1px solid var(--rule);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   justify-content: space-between;
@@ -308,6 +309,16 @@ footer {
 }
 footer button {
   white-space: nowrap;
+}
+.legal {
+  flex-basis: 100%;
+}
+.legal a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+.legal-note {
+  display: block;
 }
 #status.busy {
   color: var(--accent);

@@ -2,6 +2,9 @@
 name = "periodic-stego"
 version = "0.1.0"
 description = "Detect periodic image signals with FFT and autocorrelation"
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
   "numpy>=2.0",
@@ -15,7 +18,7 @@ dev = ["pytest>=8.0"]
 periodic-stego = "periodic_stego.cli:main"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

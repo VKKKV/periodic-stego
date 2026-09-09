@@ -1,4 +1,7 @@
 export const messages: Record<string, string> = {
+  "Source code": "源代码",
+  "No warranty. Redistribution permitted under AGPLv3.":
+    "不提供担保。可按 AGPLv3 条款再分发。",
   "Native row matching": "原始扫描行匹配",
   "Stereogram disparity": "立体图视差",
   "Stereogram disparity PNG": "立体图视差 PNG",
