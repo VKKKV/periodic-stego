@@ -4,19 +4,37 @@ Verified locally on 2026-09-09 with Node 26.8.1, npm 12.0.2, Python 3.14.7 and P
 
 ## Acceptance evidence
 
-- `python -m pytest -q`: 18 passed. Also passed from a fresh virtual environment after `python -m pip install -e '.[dev]'`.
+- `python -m pytest -q`: 37 passed, including spectral endpoints/conjugates, invalid arrays, 16-bit PNG preservation and period-2 synthetic fixtures. Also passed from a fresh virtual environment after `python -m pip install -e '.[dev]'`.
 - `npm run format:check`: passed.
 - `npm run build`: TypeScript and production Vite build passed; standalone Worker emitted with relative asset paths.
-- `npm test`: 36 passed across 6 files. Includes direct DFT, inverse roundtrips, independent NumPy oracle, direct/FFT circular AC agreement, known periods, noise/constant, odd sizes, ROI, resampling, padding and job supersession.
-- `npm run test:e2e -- --repeat-each=3`: 8 Chromium cases repeated 3 times, 24 passed. After adding a display-gamma pixel-change assertion, `npm run test:e2e`: 8 passed again.
+- `npm test`: 48 passed across 9 files. Includes direct DFT, inverse roundtrips, independent NumPy oracle, direct/FFT circular AC agreement, known periods, noise/constant, odd sizes, ROI, resampling, padding, job supersession, locale handling, odd half-length lags and exact-background median/orientation regression.
+- `npm run test:e2e -- --repeat-each=2`: 18 Chromium cases repeated twice, 36 passed. A clean snapshot of the current working tree also passed all 18 cases after a fresh dependency install.
 - `npm audit --audit-level=moderate`: 0 reported vulnerabilities. No runtime npm dependencies.
-- Python demo and analyze CLI commands were exercised successfully with JSON and diagnostic output.
+- Python demo and analyze CLI commands were exercised successfully with JSON and diagnostic output. The clean-install demo detected the 16-pixel structure; Pillow verified all three generated PNG files (source, FFT and AC), each 256 × 192.
+- A separate Chromium smoke run exercised the maximum 2048 × 2048 padding on a 256 × 192 demo. It finished without a UI error (one observed Worker time: 991 ms); this is a local observation, not a performance guarantee.
+- A clean working-tree snapshot (tracked files plus intended new files, excluding deleted/ignored artifacts) passed `npm ci --ignore-scripts`, formatting, 48 unit tests, production build and 18 Chromium tests. Its fresh Python venv passed editable installation and all 37 tests. This snapshot included the then-uncommitted changes, not just the earlier committed deployment.
 
 The browser tests run an isolated production build/preview on port 4174, not an existing dev server. `PLAYWRIGHT_BASE_URL` can point the same suite at a published site. The suite checks actual Canvas pixel changes, Worker result IDs/parameters, a known 16-pixel candidate, conservative noise, PNG signatures, JSON contents, preset reloads, broken/oversized input, 1024-pixel analysis responsiveness, rapid slider changes, ROI reset, 100% scrolling and a 390-pixel reduced-motion layout. It checks for page exceptions and non-GET/HEAD requests in the main workbench scenario.
 
 Separate manual automation alternated actual local PNG and JPEG files for 16 loads successfully without upload requests or page exceptions; private source images are not included in this repository. CDP garbage-collected heap samples showed backing storage stable at 18,345,927 bytes after warmup and JS used heap rising from 2,153,700 to 2,245,428 bytes over the later samples. This short check did not show unbounded image-buffer retention; it does not prove absence of long-run, browser-native or GPU leaks. The screenshot in `workstation.png` contains only the generated 16-pixel demonstration. One production-demo run reported 49 ms Worker analysis for 256 × 192 pixels; this is an observation on the local machine, not a portable performance guarantee.
 
-## Independent review and repairs
+## Current bilingual UI and review repairs
+
+The English/中文 selector updates controls, tooltips, accessible labels, statuses/errors, findings, caveats, axes and hover readouts. A valid saved preference overrides the browser language; blocked storage does not prevent use. Report/preset data stays canonical English. A separate Chromium check downloaded the active Chinese profiles PNG and byte-compared it with the displayed Canvas PNG: identical, with no page exceptions.
+
+`web/tests/e2e/i18n.spec.ts` verifies language persistence, a Chinese 390-pixel viewport, expanded parameter/candidate details, ROI and display controls, unchanged numerical reports/job IDs, translated Canvas content, malicious-looking filenames kept as text, malformed-preset errors and switching while a Worker is pending. The focused i18n adversarial pass found an expanded-caveat regression; it was repaired and the current browser tests cover it.
+
+Confirmed repairs in this continuation:
+
+- `web/src/main.ts` and `web/src/ui/panels.ts`: an export or unrelated input error could clear busy state during a running analysis; new-image analysis failure could show the old image's findings. Results are now cleared on source replacement, same-source stale results have an explicit notice, and export is disabled until current. Covered by `web/tests/e2e/review.spec.ts` and the pending-Worker locale test.
+- `web/src/render/heatmap.ts`: hovering the original-image margin reported negative/nonexistent pixel coordinates. A bounds check now returns the translated outside-image message. The browser regression failed on the baseline and passes after repair.
+- `web/src/ui/panels.ts` and `web/src/main.ts`: empty numeric inputs silently became zero, delayed demo completion invalidated newer preset imports, and restoring during the first decode left the app busy. `valueAsNumber`, generation ownership and page-restore state handling now have dedicated regressions.
+- `web/src/core/peaks.ts`: odd half-length AC lags could disappear through conjugate roundoff; fixed-stride background sampling also aliased with grid orientation. The grid regression originally returned relative power 10 instead of 1000. Bounded exact-median selection and half-lag handling now pass orientation and independent sorted-oracle checks without mutating input.
+- `periodic_stego/analysis.py`, `cli.py`, `synthetic.py`: Python FFT profiles omitted boundary peaks/duplicated conjugates, high-bit-depth grayscale loading clipped data to 8-bit, invalid arrays emitted warnings/errors too late, and the period-2 sine fixture contained no intended Nyquist component. Endpoint selection, native grayscale loading, early rejection and a cosine at period 2 have regressions.
+
+A final independent numerical pass found no remaining introduced bugs in the scoped median, AC-boundary and Python fixes. The parent reran its current-source oracle script: 29,812 median/nonmutation checks, 3 transpose checks and 36 even/odd half-lag checks passed. The exact-selection sort fallback was inspected but not naturally triggered by those cases; arbitrary nonfinite spectrum inputs and a complete memory benchmark were outside this check.
+
+## Earlier implementation review
 
 Three focused read-only reviews covered numerical detection, asynchronous state/privacy/export and chart semantics. A final adversarial pass found an additional profile-boundary defect; its regression failed before the fix and passed afterward.
 
@@ -27,13 +45,16 @@ An early browser test was intermittently interrupted by Vite HMR after formattin
 ## Limits and deviations
 
 - Automated compatibility is verified in Chromium, not Firefox/Safari.
+- Python retains its legacy median-of-positive-power heuristic. A pure noiseless alternating two-pixel pattern now appears correctly in `spectral_profiles`, but can still return `periodic_signal_detected: false` (relative power 1). This is a known false negative, covered explicitly in `test_pure_nyquist_peak_preserves_existing_power_baseline`; it is not the browser detector and was not redesigned in this UI task.
 - Screenshot capture succeeded, but the separate vision-analysis tool failed. DOM geometry, overflow, Canvas data and interaction assertions were verified; a full visual assessment is not claimed.
 - Confidence is an uncalibrated signal-strength heuristic. Passing synthetic noise tests does not establish a universal false-positive rate or prove/disprove hidden content.
-- No composite report PNG, payload decoding, backend or arbitrary URL input. Composite export was optional in the plan.
+- No composite report PNG, payload decoding, backend or arbitrary URL input.
 - Direct AC is limited to 32 × 32; larger direct-method input returns a readable error. Browser decoding/color handling may differ from Python.
-- The original migration files remain as design history. Current behavior, units and bounds are documented in `../README.md`.
+- Obsolete migration briefs have been removed. Current behavior, units and bounds are documented in [README.md](../README.md).
 
-## Deployment
+## Earlier deployment evidence
+
+The following records the earlier published revision, not the release status of the bilingual/review changes above. Current deployment status is available in the repository's GitHub Actions runs.
 
 - Public repository: https://github.com/VKKKV/periodic-stego
 - Live workbench: https://vkkkv.github.io/periodic-stego/

@@ -20,6 +20,8 @@ npm run dev
 
 Open the local URL printed by Vite. Choose a local file, drag it onto the page, paste a PNG/JPEG from the clipboard, or select a synthetic fixture and click **Run demo**.
 
+Use the **中文 / English** language selector in the header to switch the workbench language. On first visit, Chinese browser locales select Simplified Chinese; other locales fall back to English. A valid saved choice takes precedence. Switching updates controls, help, statuses, findings and plot labels without discarding the image, ROI or parameters, or rerunning analysis. The language preference is stored locally when browser storage is available; the app still works when storage is blocked. JSON report and preset keys, enum values and numerical data remain language-independent (canonical English); labeled PNG exports use the active interface language.
+
 ```sh
 npm run build
 npm run preview
@@ -94,7 +96,7 @@ npm run test:e2e
 
 Unit tests compare complex FFTs with direct DFT, inverse roundtrips, odd-size shifts, a NumPy-generated numerical oracle, direct/FFT AC agreement, periods 8/16/32, horizontal/both-axis structure, conservative noise, constant/RGB/Alpha inputs, ROI, downsampling, padding, validation and Worker races. Fixtures in `web/tests/fixtures/` are reproducibly generated synthetic images, not photographs.
 
-Playwright exercises PNG drag/drop and JPEG file selection, real plots, analysis/display controls, report and PNG downloads, preset roundtrips, corrupt/empty/oversize input, 1024-pixel responsiveness, rapid-change supersession, replacement loads, a 390-pixel viewport and reduced motion. Automated browser verification currently targets Chromium; recent Firefox/Safari provide the required APIs but are not part of the tested matrix.
+Playwright exercises PNG drag/drop and JPEG file selection, real plots, analysis/display controls, report and PNG downloads, preset roundtrips, corrupt/empty/oversize input, 1024-pixel responsiveness, rapid-change supersession, replacement loads, a 390-pixel viewport and reduced motion. Locale regressions additionally cover saved/blocked storage, unchanged ROI/parameters/reports, switching during a pending Worker, translated errors and treating filenames as text. Automated browser verification currently targets Chromium; recent Firefox/Safari provide the required APIs but are not part of the tested matrix.
 
 Detailed execution evidence, review repairs and verification limits: [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
@@ -107,7 +109,7 @@ python -m periodic_stego demo --output /tmp/periodic-stego-demo
 python -m periodic_stego analyze image.png --json report.json --diagnostics diagnostics/
 ```
 
-The CLI uses mean removal, no window and no resampling. For numerical comparison, use those same settings in the web app. Detection heuristics and report schemas intentionally differ; Python remains a legacy reference, not a bit-for-bit clone of the full web UI. Its autocorrelation output now uses true `lag_pixels` / `period_pixels` and `normalized_correlation` rather than the former incorrect frequency-profile interpretation.
+The CLI uses mean removal, no window and no resampling. For numerical comparison, use those same settings in the web app. Detection heuristics and report schemas intentionally differ; Python remains a legacy reference, not a bit-for-bit clone of the full web UI. Its autocorrelation output now uses true `lag_pixels` / `period_pixels` and `normalized_correlation` rather than the former incorrect frequency-profile interpretation. The legacy positive-power median heuristic can still miss a pure noiseless two-pixel alternating pattern even when the spectral profile correctly reports its peak; inspect the profiles rather than relying on the summary boolean.
 
 ## Deployment
 
