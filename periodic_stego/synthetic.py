@@ -29,9 +29,11 @@ def periodic_sample(
     x = np.arange(width)[None, :]
     y = np.arange(height)[:, None]
     signal = np.zeros_like(image)
+    # sin(pi * integer) vanishes at Nyquist; preserve the existing phase elsewhere.
+    wave = np.cos if period == 2 else np.sin
     if orientation in {"vertical", "both"}:
-        signal += np.sin(2 * np.pi * x / period)
+        signal += wave(2 * np.pi * x / period)
     if orientation in {"horizontal", "both"}:
-        signal += np.sin(2 * np.pi * y / period)
+        signal += wave(2 * np.pi * y / period)
     image += amplitude * signal
     return np.clip(image * 255, 0, 255).astype(np.uint8)

@@ -4,12 +4,96 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import warnings
 
 import numpy as np
 import pytest
 from PIL import Image
 
-from periodic_stego.analysis import _autocorrelation_peaks, _top_2d_peaks, analyze_array
+from periodic_stego.analysis import _autocorrelation_peaks, _profile_peaks, _top_2d_peaks, analyze_array
+from periodic_stego.cli import _load
+from periodic_stego.synthetic import periodic_sample
+
+
+@pytest.mark.parametrize("size", [31, 32])
+@pytest.mark.parametrize("distance", [4, 15])
+def test_spectral_profiles_include_endpoints_and_merge_conjugates(size, distance):
+    if distance == 15:
+        distance = size // 2
+    profile = np.ones(size)
+    center = size // 2
+    profile[(center - distance) % size] = 100
+    profile[(center + distance) % size] = 100
+    peaks = _profile_peaks(profile)
+    frequencies = [peak["frequency_cycles_per_pixel"] for peak in peaks]
+    assert frequencies[0] == round(distance / size, 8)
+    assert len(frequencies) == len(set(frequencies))
+    assert peaks[0]["relative_power"] == 100
+
+
+@pytest.mark.parametrize("size,phase", [(15, 0.5), (31, 1.25), (63, 0.0)])
+def test_odd_length_endpoint_survives_conjugate_roundoff(size, phase):
+    coordinate = np.arange(size)
+    image = np.tile(0.5 + 0.2 * np.cos(2 * np.pi * (size // 2) * coordinate / size + phase), (16, 1))
+    peaks = analyze_array(image)["spectral_profiles"]["x"]
+    assert peaks[0]["period_pixels"] == round(size / (size // 2), 4)
+
+
+def test_pure_nyquist_peak_preserves_existing_power_baseline():
+    image = ((np.indices((32, 32))[1] % 2) * 255).astype(np.uint8)
+    report = analyze_array(image)
+    assert report["spectral_profiles"]["x"] == [{
+        "frequency_cycles_per_pixel": 0.5,
+        "period_pixels": 2.0,
+        "relative_power": 1.0,
+    }]
+    # The existing median-of-positive-power heuristic is intentionally unchanged.
+    assert report["periodic_signal_detected"] is False
+
+
+@pytest.mark.parametrize("axis", [0, 1])
+def test_nyquist_stripes_have_a_spectral_peak(axis):
+    coordinate = np.indices((32, 32))[axis]
+    image = (coordinate % 2) * 0.6 + np.random.default_rng(71).normal(0, 0.01, (32, 32))
+    report = analyze_array(image)
+    peaks = report["spectral_profiles"]["y" if axis == 0 else "x"]
+    assert peaks[0]["period_pixels"] == 2.0
+    assert report["periodic_signal_detected"] is True
+
+
+@pytest.mark.parametrize("image", [
+    np.empty((0, 8)), np.empty((8, 0)), np.empty((8, 8, 0)),
+    np.full((8, 8), 1 + 2j), np.full((8, 8, 3), 1 + 2j),
+])
+def test_invalid_arrays_reject_without_warnings(image):
+    with warnings.catch_warnings(record=True) as emitted:
+        warnings.simplefilter("always")
+        with pytest.raises(ValueError, match="empty|complex"):
+            analyze_array(image)
+    assert not emitted
+
+
+@pytest.mark.parametrize("orientation,axis", [("vertical", "x"), ("horizontal", "y"), ("both", "x")])
+def test_period_two_fixture_contains_nyquist_signal(orientation, axis):
+    generated = periodic_sample(width=64, height=32, period=2, orientation=orientation, seed=7)
+    report = analyze_array(generated)
+    assert report["spectral_profiles"][axis][0]["period_pixels"] == 2.0
+    assert report["periodic_signal_detected"]
+
+
+def test_cli_preserves_16_bit_grayscale_png(tmp_path):
+    image = periodic_sample(width=128, height=64, period=8, seed=7).astype(np.uint16) * 16 + 1000
+    source = tmp_path / "periodic-16bit.png"
+    Image.fromarray(image).save(source)
+    np.testing.assert_array_equal(_load(source), image)
+    expected = analyze_array(image)
+    expected.pop("_diagnostics")
+    completed = subprocess.run(
+        [sys.executable, "-m", "periodic_stego", "analyze", str(source)],
+        cwd=Path(__file__).resolve().parents[1], check=True, capture_output=True, text=True,
+    )
+    assert json.loads(completed.stdout) == expected
+    assert expected["periodic_signal_detected"] is True
 
 
 @pytest.mark.parametrize("orientation,period,width,height", [

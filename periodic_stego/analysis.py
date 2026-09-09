@@ -9,6 +9,10 @@ import numpy as np
 
 def _luminance(image: np.ndarray) -> np.ndarray:
     array = np.asarray(image)
+    if array.size == 0:
+        raise ValueError("image must not be empty")
+    if np.iscomplexobj(array):
+        raise ValueError("image must not contain complex values")
     if array.ndim == 3:
         if array.shape[2] >= 3:
             array = 0.2126 * array[..., 0] + 0.7152 * array[..., 1] + 0.0722 * array[..., 2]
@@ -37,13 +41,15 @@ def _profile_peaks(profile: np.ndarray, *, max_items: int = 8) -> list[dict[str,
     values = np.asarray(profile, dtype=np.float64).copy()
     values[max(0, center - 1): min(n, center + 2)] = 0
     candidates: list[tuple[float, int]] = []
-    for index in range(1, n - 1):
+    # Real-image spectra are conjugate symmetric. Use the nonpositive half,
+    # including index zero (Nyquist for even lengths). At the boundary compare
+    # only inward, avoiding roundoff differences between odd-length conjugates.
+    for index in range(max(0, center - 1)):
         if values[index] <= 0:
             continue
-        if values[index] >= values[index - 1] and values[index] >= values[index + 1]:
-            distance = abs(index - center)
-            if distance >= 2:
-                candidates.append((float(values[index]), index))
+        left = values[index - 1] if index else values[index]
+        if values[index] >= left and values[index] >= values[index + 1]:
+            candidates.append((float(values[index]), index))
     candidates.sort(reverse=True)
     selected: list[tuple[float, int]] = []
     min_distance = max(2, n // 128)
@@ -135,7 +141,7 @@ def _top_2d_peaks(power: np.ndarray, *, max_items: int = 12) -> list[dict[str, f
 
 
 def analyze_array(image: np.ndarray) -> dict[str, Any]:
-    """Analyze an image and return a JSON-serializable report."""
+    """Return report fields plus NumPy arrays under the private _diagnostics key."""
     gray = _luminance(image)
     height, width = gray.shape
     work = gray - gray.mean()

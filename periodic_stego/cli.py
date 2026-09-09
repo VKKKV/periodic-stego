@@ -13,7 +13,9 @@ from .synthetic import periodic_sample
 
 def _load(path: Path) -> np.ndarray:
     with Image.open(path) as image:
-        return np.asarray(image.convert("RGB" if image.mode not in {"1", "L", "I", "F"} else "L"))
+        if image.mode in {"L", "I", "F"} or image.mode.startswith("I;16"):
+            return np.asarray(image)
+        return np.asarray(image.convert("L" if image.mode == "1" else "RGB"))
 
 
 def _write_diagnostics(report: dict, directory: Path) -> None:
