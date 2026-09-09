@@ -5,16 +5,45 @@ const blank = {
   periodX: null,
   periodY: null,
 };
-const median = (values: number[]) => {
-  values.sort((a, b) => a - b);
-  return values.length ? values[Math.floor(values.length / 2)] : 0;
-};
 function background(values: Float64Array, accept: (i: number) => boolean) {
-  const sample: number[] = [];
-  const stride = Math.max(1, Math.floor(values.length / 8192));
-  for (let i = 0; i < values.length; i += stride)
-    if (accept(i)) sample.push(values[i]);
-  return Math.max(median(sample), 1e-18);
+  // Sampling a flattened grid at fixed strides aliases with rows/columns.
+  // Select the exact median in a private buffer; never mutate the spectrum.
+  const sample = new Float64Array(values.length);
+  let count = 0;
+  for (let i = 0; i < values.length; i++)
+    if (accept(i)) sample[count++] = values[i];
+  if (!count) return 1e-18;
+  const target = Math.floor(count / 2);
+  let lo = 0,
+    hi = count - 1;
+  const swap = (a: number, b: number) => {
+    const value = sample[a];
+    sample[a] = sample[b];
+    sample[b] = value;
+  };
+  let budget = 2 * Math.ceil(Math.log2(count + 1));
+  while (lo < hi) {
+    if (--budget < 0) {
+      sample.subarray(lo, hi + 1).sort();
+      break;
+    }
+    const mid = Math.floor((lo + hi) / 2);
+    const pivot = [sample[lo], sample[mid], sample[hi]].sort(
+      (a, b) => a - b,
+    )[1];
+    let less = lo,
+      i = lo,
+      greater = hi;
+    while (i <= greater) {
+      if (sample[i] < pivot) swap(less++, i++);
+      else if (sample[i] > pivot) swap(i, greater--);
+      else i++;
+    }
+    if (target < less) hi = less - 1;
+    else if (target > greater) lo = greater + 1;
+    else break;
+  }
+  return Math.max(sample[target], 1e-18);
 }
 function confidence(relative: number, fraction: number) {
   return Math.min(
@@ -210,7 +239,14 @@ export function acPeaks(
     if (v < p.acThreshold || v <= 0) continue;
     const before = values[(i - 1 + values.length) % values.length] / zero,
       after = values[(i + 1) % values.length] / zero;
-    if (v >= before && v >= after && (v > before + 1e-12 || v > after + 1e-12))
+    // Conjugate lags can be adjacent across an odd-length wrap boundary.
+    const tolerance =
+      Math.max(Math.abs(v), Math.abs(before), Math.abs(after)) * 1e-12;
+    if (
+      v >= before - tolerance &&
+      v >= after - tolerance &&
+      (v > before + tolerance || v > after + tolerance)
+    )
       peaks.push({ lag, value: v });
   }
   peaks.sort((a, b) => b.value - a.value || a.lag - b.lag);
