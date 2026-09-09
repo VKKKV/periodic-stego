@@ -95,7 +95,7 @@ function control(spec: Spec, kind: "analysis" | "display") {
           .split(",")
           .map((o) => `<option value="${o}">${o}</option>`)
           .join("")}</select>`
-      : `<input ${attrs} type="${type}" ${min !== undefined ? `min="${min}" max="${max}" step="${step}"` : ""}>`;
+      : `<input ${attrs} type="${type}" ${min !== undefined ? `min="${min}" max="${max}" step="${type === "range" ? "any" : step}"` : ""}>`;
   return `<label class="control ${type === "checkbox" ? "check" : ""}"><span>${label}</span>${input}${type === "range" ? `<output data-value="${name}"></output>` : ""}</label>`;
 }
 export function controlsHTML() {

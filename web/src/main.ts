@@ -14,6 +14,8 @@ import { demoFile, loadImage, type LocalImage } from "./image";
 import { createReport, downloadJSON, downloadPNG } from "./export";
 import { TOOL_VERSION, type AnalysisResult } from "./core/types";
 
+import { initLocale } from "./i18n";
+initLocale();
 let analysis = structuredClone(DEFAULT_ANALYSIS);
 let display = structuredClone(DEFAULT_DISPLAY);
 let source: LocalImage | null = null;
@@ -28,12 +30,14 @@ let lastError = "";
 const root = document.querySelector<HTMLElement>("#app")!;
 const status = (text: string, busy = false) => {
   root.dataset.busy = String(busy);
+  root.dataset.current = String(!dirty && !loading && resultImage === source);
   ui.setStatus(text, busy);
 };
-const fail = (error: unknown) => {
+const fail = (error: unknown, preserveBusy = true) => {
   lastError = error instanceof Error ? error.message : String(error);
   ui.setError(lastError);
-  status(`Error · ${lastError}`);
+  if (!preserveBusy || root.dataset.busy !== "true")
+    status(`Error · ${lastError}`);
 };
 function invalidate() {
   clearTimeout(timer);
@@ -61,12 +65,15 @@ function schedule() {
         params: structuredClone(analysis),
       });
     } catch (error) {
-      fail(error);
+      fail(error, false);
     }
   }, 150);
 }
-async function openFile(file: File, generation = ++loadGeneration) {
-  presetGeneration++;
+async function openFile(file: File, generation?: number) {
+  if (generation === undefined) {
+    generation = ++loadGeneration;
+    presetGeneration++;
+  }
   loading = true;
   invalidate();
   ui.setError("");
@@ -75,6 +82,16 @@ async function openFile(file: File, generation = ++loadGeneration) {
     const image = await loadImage(file, () => generation === loadGeneration);
     if (generation !== loadGeneration) return;
     source = image;
+    result = null;
+    resultImage = null;
+    for (const key of [
+      "jobId",
+      "strong",
+      "resultWindow",
+      "resultChannel",
+      "resultThreshold",
+    ])
+      delete root.dataset[key];
     analysis = {
       ...analysis,
       roi: null,
@@ -93,7 +110,7 @@ async function openFile(file: File, generation = ++loadGeneration) {
   } catch (error) {
     if (generation !== loadGeneration) return;
     loading = false;
-    fail(error);
+    fail(error, false);
   }
 }
 async function exportView(kind: string) {
@@ -126,7 +143,7 @@ async function exportView(kind: string) {
       await downloadPNG(canvas, `periodic-stego-${kind}.png`);
     }
   } catch (error) {
-    fail(error);
+    fail(error, true);
   }
 }
 const ui = mountUI(root, analysis, display, {
@@ -149,6 +166,7 @@ const ui = mountUI(root, analysis, display, {
   },
   onDemo: (name) => {
     const generation = ++loadGeneration;
+    presetGeneration++;
     loading = true;
     invalidate();
     status("Generating synthetic image…", true);
@@ -159,7 +177,7 @@ const ui = mountUI(root, analysis, display, {
       .catch((error) => {
         if (generation === loadGeneration) {
           loading = false;
-          fail(error);
+          fail(error, false);
         }
       });
   },
@@ -210,7 +228,9 @@ const ui = mountUI(root, analysis, display, {
     if (navigator.clipboard?.writeText)
       void navigator.clipboard
         .writeText(JSON.stringify(info, null, 2))
-        .then(() => status("Debug info copied."))
+        .then(() => {
+          if (root.dataset.busy !== "true") status("Debug info copied.");
+        })
         .catch(() => downloadJSON(info, "periodic-stego-debug.json"));
     else downloadJSON(info, "periodic-stego-debug.json");
   },
@@ -242,7 +262,7 @@ const jobs = new AnalysisJobs(
         `Ready · job ${id} · ${next.processedWidth} × ${next.processedHeight} analyzed px · ${Math.round(next.stats.elapsedMs)} ms`,
       );
     },
-    error: (_id, error) => fail(new Error(error)),
+    error: (_id, error) => fail(new Error(error), false),
   },
 );
 window.addEventListener("dragover", (event) => {
@@ -268,9 +288,11 @@ window.addEventListener("pagehide", () => {
   invalidate();
 });
 window.addEventListener("pageshow", (event) => {
-  if (event.persisted && source) {
+  if (event.persisted) {
     loading = false;
-    schedule();
+    if (source) schedule();
+    else
+      status("Ready for a local image · choose a file or run a synthetic demo");
   }
 });
 status("Ready for a local image · choose a file or run a synthetic demo");

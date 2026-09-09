@@ -1,4 +1,5 @@
 import type { AnalysisResult, DisplayParams } from "../core/types";
+import { t } from "../i18n";
 export function drawProfiles(
   canvas: HTMLCanvasElement,
   r: AnalysisResult,
@@ -74,7 +75,7 @@ export function drawProfiles(
     ctx.fillStyle = "#b0c4d0";
     ctx.fillText(
       labels[k] +
-        (ac ? " · correlation / zero lag" : " · log₁₀(1 + relative power)"),
+        t(ac ? " · correlation / zero lag" : " · log₁₀(1 + relative power)"),
       left,
       top - 7,
     );
@@ -159,9 +160,11 @@ export function drawProfiles(
       i = Math.round(range.start + fraction * (range.end - range.start));
     const lag = i - range.center,
       f = lag / data[k].length;
-    canvas.title = range.ac
-      ? `${labels[k]} lag ${lag} px · correlation ${range.normalized[i].toPrecision(4)}`
-      : `${labels[k]} f ${f.toFixed(5)} cyc/px · period ${f ? (1 / f).toFixed(2) : "∞"} px · relative power ${(10 ** range.normalized[i] - 1).toPrecision(4)}`;
+    canvas.title = t(
+      range.ac
+        ? `${labels[k]} lag ${lag} px · correlation ${range.normalized[i].toPrecision(4)}`
+        : `${labels[k]} f ${f.toFixed(5)} cyc/px · period ${f ? (1 / f).toFixed(2) : "∞"} px · relative power ${(10 ** range.normalized[i] - 1).toPrecision(4)}`,
+    );
     const out = document.querySelector<HTMLOutputElement>("#cursor");
     if (out) out.value = canvas.title;
   };

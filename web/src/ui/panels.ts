@@ -11,6 +11,7 @@ import {
   type PlotRect,
 } from "../render/heatmap";
 import { drawProfiles } from "../render/profile";
+import { bindStaticText, getLocale, setLocale, t } from "../i18n";
 interface Callbacks {
   onAnalysis: (p: AnalysisParams) => void;
   onDisplay: (p: DisplayParams) => void;
@@ -36,7 +37,7 @@ export function mountUI(
     rect: PlotRect | null = null,
     hasAlpha = false;
   let images: Record<string, HTMLCanvasElement> = {};
-  root.innerHTML = `<header class="masthead"><div class="brand">PERIODIC<span> / STEGO</span><small>LOCAL IMAGE ANALYSIS WORKBENCH</small></div><div class="header-actions"><span class="local-badge">LOCAL ONLY</span><button id="parameters-toggle" aria-expanded="false" aria-controls="parameters">Parameters</button><label class="button primary">Open image<input id="image-file" type="file" accept="image/png,image/jpeg" hidden></label><select aria-label="Export diagnostic" id="export-select"><option value="report">JSON report</option><option value="fft">FFT PNG</option><option value="autocorrelation">Autocorrelation PNG</option><option value="profiles">Profiles PNG</option><option value="preprocessed">Preprocessed PNG</option><option value="original">Original PNG</option></select><button id="export-button">Export</button></div></header>
+  root.innerHTML = `<header class="masthead"><div class="brand">PERIODIC<span> / STEGO</span><small>LOCAL IMAGE ANALYSIS WORKBENCH</small></div><div class="header-actions"><span class="local-badge">LOCAL ONLY</span><select id="language" aria-label="Language / 语言"><option value="en" lang="en">English</option><option value="zh-CN" lang="zh-CN">中文</option></select><button id="parameters-toggle" aria-expanded="false" aria-controls="parameters">Parameters</button><label class="button primary">Open image<input id="image-file" type="file" accept="image/png,image/jpeg" hidden></label><select aria-label="Export diagnostic" id="export-select"><option value="report">JSON report</option><option value="fft">FFT PNG</option><option value="autocorrelation">Autocorrelation PNG</option><option value="profiles">Profiles PNG</option><option value="preprocessed">Preprocessed PNG</option><option value="original">Original PNG</option></select><button id="export-button">Export</button></div></header>
     <div class="workstation"><aside id="parameters">${controlsHTML()}</aside><main class="workspace"><div class="source-bar"><span id="image-meta">No image loaded</span><label>Fixture <select id="demo" aria-label="Synthetic fixture"><option value="vertical">Vertical · 16 px</option><option value="horizontal">Horizontal · 16 px</option><option value="both">Both axes · 16 px</option><option value="noise">Noise only</option><option value="constant">Constant</option></select></label><button id="demo-button">Run demo</button></div>
     <div id="error" role="alert" hidden></div><div class="view-tabs" role="tablist" aria-label="Image views">${[
       ["original", "Original"],
@@ -53,7 +54,10 @@ export function mountUI(
     <div class="readout"><output id="cursor">Move over a plot for coordinates and values</output><span id="units">original pixels</span></div>
     <div class="section-title profile-heading">AXIS PROFILES <span>FFT / CIRCULAR AUTOCORRELATION</span></div><div class="profiles"><canvas id="profile-canvas" data-testid="profile-canvas" aria-label="X and Y FFT and autocorrelation profiles" hidden></canvas><p id="profile-empty" class="hint">Numerical profiles appear after an image is analyzed. Dashed amber lines mark detection thresholds.</p></div>
     <footer><span id="status" data-testid="status" role="status"></span><button id="debug">Copy debug info</button></footer></main>
-    <aside class="findings"><div class="section-title">FINDINGS <span id="candidate-count">—</span></div><div id="verdict"><h2>Evidence, not a verdict.</h2><p>A periodic peak can reveal repeated structure. It cannot prove a hidden message.</p></div><div id="stats"></div><div id="candidates"></div><details open class="caveats"><summary>Interpretation & limitations</summary><ul id="warnings"><li>JPEG blocks, resizing, scanlines and ordinary textures can also produce peaks.</li><li>Confidence describes signal strength, not steganography probability.</li></ul></details></aside></div>`;
+    <aside class="findings"><div class="section-title">FINDINGS <span id="candidate-count">—</span></div><p id="result-note" class="hint" hidden>Previous result · not current; wait for a successful analysis.</p><div id="verdict"><h2>Evidence, not a verdict.</h2><p>A periodic peak can reveal repeated structure. It cannot prove a hidden message.</p></div><div id="stats"></div><div id="candidates"></div><details open class="caveats"><summary>Interpretation & limitations</summary><ul id="warnings"><li>JPEG blocks, resizing, scanlines and ordinary textures can also produce peaks.</li><li>Confidence describes signal strength, not steganography probability.</li></ul></details></aside></div>`;
+  const localizeStatic = bindStaticText(root);
+  let statusText = "",
+    errorText = "";
   const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
     root.querySelector<T>(selector)!;
   const main = $<HTMLCanvasElement>("#main-canvas"),
@@ -68,29 +72,40 @@ export function mountUI(
       $("#profile-empty").hidden = true;
       drawProfiles(profiles, result, d);
     }
-    $("#units").textContent =
+    $("#units").textContent = t(
       kind === "original"
         ? "original pixels"
         : kind === "autocorrelation"
           ? "circular lag · analyzed px"
-          : "analyzed pixels";
+          : "analyzed pixels",
+    );
   }
   function findings() {
-    if (!result) return;
+    if (!result) {
+      if (original) $("#verdict").textContent = t("Evidence, not a verdict.");
+      return;
+    }
     $("#candidate-count").textContent = String(result.candidates.length);
     $("#verdict").replaceChildren();
     const h = document.createElement("h2");
-    h.textContent = !result.stats.usefulSignal
-      ? "No useful signal"
-      : result.stats.strongPeriodicity
-        ? "Strong repeated structure"
-        : "No strong periodic evidence";
+    h.textContent = t(
+      !result.stats.usefulSignal
+        ? "No useful signal"
+        : result.stats.strongPeriodicity
+          ? "Strong repeated structure"
+          : "No strong periodic evidence",
+    );
     const p = document.createElement("p");
-    p.textContent = "Detection confidence is not proof of hidden content.";
+    p.textContent = t("Detection confidence is not proof of hidden content.");
     $("#verdict").append(h, p);
-    $("#stats").textContent =
-      `${result.processedWidth} × ${result.processedHeight} analyzed px · FFT ${result.width} × ${result.height}\nμ ${result.stats.mean.toFixed(5)} · σ ${result.stats.stddev.toFixed(5)}\nOriginal scale X ${result.scaleX.toFixed(3)} / Y ${result.scaleY.toFixed(3)}`;
+    $("#stats").textContent = t(
+      `${result.processedWidth} × ${result.processedHeight} analyzed px · FFT ${result.width} × ${result.height}\nμ ${result.stats.mean.toFixed(5)} · σ ${result.stats.stddev.toFixed(5)}\nOriginal scale X ${result.scaleX.toFixed(3)} / Y ${result.scaleY.toFixed(3)}`,
+    );
     const list = $("#candidates");
+    const openCaveats = Array.from(
+      list.querySelectorAll("details"),
+      (el) => el.open,
+    );
     list.replaceChildren();
     for (const c of result.candidates) {
       const item = document.createElement("article");
@@ -98,12 +113,15 @@ export function mountUI(
       const title = document.createElement("h3");
       title.textContent = `${c.axis.toUpperCase()} · ${(c.periodX ?? c.periodY ?? 0).toFixed(2)} px`;
       const body = document.createElement("p");
-      body.textContent = `${c.source}\nfx ${c.frequencyX?.toFixed(5) ?? "—"} · fy ${c.frequencyY?.toFixed(5) ?? "—"} cyc/px\nPx ${c.periodX?.toFixed(2) ?? "—"} · Py ${c.periodY?.toFixed(2) ?? "—"}\nPower ${c.power.toExponential(2)} · relative ${c.relativePower.toPrecision(3)}\nSignal score ${c.confidence.toFixed(2)} / 1 (uncalibrated)`;
+      body.textContent = t(
+        `${c.source}\nfx ${c.frequencyX?.toFixed(5) ?? "—"} · fy ${c.frequencyY?.toFixed(5) ?? "—"} cyc/px\nPx ${c.periodX?.toFixed(2) ?? "—"} · Py ${c.periodY?.toFixed(2) ?? "—"}\nPower ${c.power.toExponential(2)} · relative ${c.relativePower.toPrecision(3)}\nSignal score ${c.confidence.toFixed(2)} / 1 (uncalibrated)`,
+      );
       const details = document.createElement("details"),
         summary = document.createElement("summary"),
         text = document.createElement("p");
-      summary.textContent = "Caveats";
-      text.textContent = c.caveats.join(" ");
+      details.open = openCaveats[list.children.length] ?? false;
+      summary.textContent = t("Caveats");
+      text.textContent = c.caveats.map(t).join(" ");
       details.append(summary, text);
       item.append(title, body, details);
       list.append(item);
@@ -113,7 +131,7 @@ export function mountUI(
       if (!d.wrapWarning && warning.startsWith("Circular autocorrelation"))
         continue;
       const li = document.createElement("li");
-      li.textContent = warning;
+      li.textContent = t(warning);
       $("#warnings").append(li);
     }
   }
@@ -135,7 +153,7 @@ export function mountUI(
         target instanceof HTMLInputElement && target.type === "checkbox"
           ? target.checked
           : target instanceof HTMLInputElement
-            ? Number(target.value)
+            ? target.valueAsNumber
             : target.value;
       const values = (target.dataset.kind === "analysis"
         ? a
@@ -155,7 +173,9 @@ export function mountUI(
         width: original.width,
         height: original.height,
       };
-      roi[target.name.slice(4) as keyof typeof roi] = Number(target.value);
+      roi[target.name.slice(4) as keyof typeof roi] = (
+        target as HTMLInputElement
+      ).valueAsNumber;
       a.roi = roi;
       callbacks.onAnalysis(structuredClone(a));
       render();
@@ -199,6 +219,21 @@ export function mountUI(
   $("#export-button").onclick = () =>
     callbacks.onExport($<HTMLSelectElement>("#export-select").value);
   $("#debug").onclick = callbacks.onDebug;
+  function localize() {
+    localizeStatic();
+    $("#status").textContent = t(statusText);
+    $("#error").textContent = t(errorText);
+    $("#cursor").textContent = t("Move over a plot for coordinates and values");
+    profiles.removeAttribute("title");
+    render();
+    findings();
+  }
+  const language = $<HTMLSelectElement>("#language");
+  language.value = getLocale();
+  language.onchange = () => {
+    setLocale(language.value);
+    localize();
+  };
   $("#parameters-toggle").onclick = () => {
     const open = root.classList.toggle("drawer-open");
     $("#parameters-toggle").setAttribute("aria-expanded", String(open));
@@ -283,13 +318,19 @@ export function mountUI(
   };
   new ResizeObserver(() => render()).observe($(".workspace"));
   sync();
+  localize();
   return {
     setStatus: (text: string, busy: boolean) => {
-      $("#status").textContent = text;
+      statusText = text;
+      $("#status").textContent = t(text);
+      $<HTMLButtonElement>("#export-button").disabled =
+        root.dataset.current !== "true";
       $("#status").classList.toggle("busy", busy);
+      $("#result-note").hidden = !result || root.dataset.current === "true";
     },
     setError: (message: string) => {
-      $("#error").textContent = message;
+      errorText = message;
+      $("#error").textContent = t(message);
       $("#error").hidden = !message;
     },
     setControls: (nextA: AnalysisParams, nextD: DisplayParams) => {
@@ -302,6 +343,16 @@ export function mountUI(
       canvas: HTMLCanvasElement,
       meta: { name: string; width: number; height: number; hasAlpha: boolean },
     ) => {
+      drag = null;
+      result = null;
+      images = {};
+      profiles.hidden = true;
+      $("#profile-empty").hidden = false;
+      $("#result-note").hidden = true;
+      $("#candidate-count").textContent = "—";
+      for (const id of ["#stats", "#candidates", "#warnings"])
+        $(id).replaceChildren();
+      $("#verdict").textContent = t("Evidence, not a verdict.");
       original = canvas;
       hasAlpha = meta.hasAlpha;
       $("#image-meta").textContent =

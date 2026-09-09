@@ -1,4 +1,5 @@
 import type { AnalysisResult, DisplayParams } from "../core/types";
+import { t } from "../i18n";
 export function dataCanvas(
   values: Float64Array,
   w: number,
@@ -197,8 +198,8 @@ export function drawImageView(
       : ac
         ? "lag X · analyzed px"
         : "X · image pixels";
-    ctx.fillText(xLabel, 32, height - 9);
-    ctx.fillText(spectral ? "fy" : ac ? "lag Y" : "Y", 5, 16);
+    ctx.fillText(t(xLabel), 32, height - 9);
+    ctx.fillText(t(spectral ? "fy" : ac ? "lag Y" : "Y"), 5, 16);
     for (let k = 0; k <= 4; k++) {
       const sample = sx + (sw * k) / 4 - 0.5;
       const v = spectral
@@ -240,15 +241,30 @@ export function readout(
     y = Math.floor(
       rect.sy + ((event.clientY - b.top - rect.top) / rect.height) * rect.sh,
     );
-  if (!result || kind === "original") return `x ${x} · y ${y} original px`;
+  const localX = event.clientX - b.left,
+    localY = event.clientY - b.top;
+  if (
+    localX < rect.left ||
+    localY < rect.top ||
+    localX >= rect.left + rect.width ||
+    localY >= rect.top + rect.height
+  )
+    return t("Outside image");
+  if (!result || kind === "original") return t(`x ${x} · y ${y} original px`);
   if (x < 0 || y < 0 || x >= result.width || y >= result.height)
-    return "Outside image";
+    return t("Outside image");
   if (kind === "fft") {
     const fx = (x - Math.floor(result.width / 2)) / result.width,
       fy = (y - Math.floor(result.height / 2)) / result.height;
-    return `fx ${fx.toFixed(5)} · fy ${fy.toFixed(5)} cyc/px | period X ${fx ? (1 / Math.abs(fx)).toFixed(2) : "∞"} · Y ${fy ? (1 / Math.abs(fy)).toFixed(2) : "∞"} px | power ${result.power[y * result.width + x].toExponential(3)}`;
+    return t(
+      `fx ${fx.toFixed(5)} · fy ${fy.toFixed(5)} cyc/px | period X ${fx ? (1 / Math.abs(fx)).toFixed(2) : "∞"} · Y ${fy ? (1 / Math.abs(fy)).toFixed(2) : "∞"} px | power ${result.power[y * result.width + x].toExponential(3)}`,
+    );
   }
   if (kind === "autocorrelation")
-    return `lag X ${x - Math.floor(result.width / 2)} · Y ${y - Math.floor(result.height / 2)} px | AC ${result.autocorrelation[y * result.width + x].toPrecision(5)}`;
-  return `x ${x} · y ${y} analyzed px | value ${result.preprocessed[y * result.width + x].toPrecision(5)}`;
+    return t(
+      `lag X ${x - Math.floor(result.width / 2)} · Y ${y - Math.floor(result.height / 2)} px | AC ${result.autocorrelation[y * result.width + x].toPrecision(5)}`,
+    );
+  return t(
+    `x ${x} · y ${y} analyzed px | value ${result.preprocessed[y * result.width + x].toPrecision(5)}`,
+  );
 }

@@ -1,4 +1,15 @@
 /* Workstation · restrained Dark Swiss · no remote fonts or assets */
+#export-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+#result-note {
+  color: var(--amber);
+  padding: 10px 0;
+}
+#language {
+  min-width: 86px;
+}
 .masthead {
   min-height: 90px;
   display: flex;

@@ -171,7 +171,12 @@ export function parsePreset(text: string): {
   display: DisplayParams;
 } {
   if (text.length > 65536) throw new Error("Preset exceeds 64 KiB.");
-  const value = JSON.parse(text);
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error("Invalid preset JSON.");
+  }
   if (!value || value.schema !== "periodic-stego-preset/v1")
     throw new Error("Unsupported preset schema.");
   return {
