@@ -1,6 +1,6 @@
 # periodic-stego
 
-A browser-local workbench for investigating periodic structure in PNG and JPEG images. Open an image, tune preprocessing and detection parameters, and compare the original, FFT spectrum, circular autocorrelation, and X/Y profiles.
+A browser-local workbench for investigating periodic structure in PNG and JPEG images. Open an image, tune preprocessing and detection parameters, and compare the original, FFT spectrum, circular autocorrelation, X/Y profiles, and horizontal stereogram disparity.
 
 [Open the workbench](https://vkkkv.github.io/periodic-stego/)
 
@@ -34,7 +34,7 @@ The production app is static: `web/dist/` can be served by any static host. Vite
 - Images are decoded and analyzed locally using Canvas and a Web Worker. There is no upload endpoint, analytics, external font, CDN dependency, or account system.
 - The host still receives normal requests for the site assets. Image data and parameters are not sent with those requests.
 - Files are limited to 32 MiB, 16 megapixels, and 16384 pixels per side before decoding. Larger files must be resized locally first. PNG and JPEG are supported, not SVG, RAW, animated image analysis, or arbitrary URLs.
-- The default analysis limit is 512 pixels on the longer ROI dimension, adjustable up to 1024. Area-average downsampling happens in the Worker. Padding is bounded to 2048 × 2048.
+- The default FFT analysis limit is 512 pixels on the longer ROI dimension, adjustable up to 1024. Area-average downsampling happens in the Worker. Padding is bounded to 2048 × 2048. Horizontal repeat matching separately samples native-resolution rows; its diagnostic raster is limited to 512 pixels per side and may be reduced further to bound matching work.
 - Images/results are held in memory, not persisted in local storage. Exported reports include the image filename, dimensions, byte size, and file modification time, but no pixels. Review this metadata before sharing reports. Debug info excludes the filename and pixel data.
 
 ## Workbench controls
@@ -59,14 +59,32 @@ Frequency is measured in cycles per **analyzed pixel**. Period is `1 / |frequenc
 
 Circular autocorrelation is `IFFT(FFT(x) × conjugate(FFT(x)))` on the padded grid. AC candidates report actual pixel lags, not reciprocal FFT-bin positions. Opposite lag directions and Fourier conjugate pairs are merged within their respective candidate source. X/Y FFT profiles and 2D peaks remain separate evidence sources; the same physical period can appear in multiple sources and at harmonics.
 
-FFT detection uses local maxima, DC exclusion, minimum separation, and a relative-to-median-background score. A separate spectral-concentration factor, compensated for zero-padding, prevents large noise outliers from automatically becoming strong findings. The displayed 0–1 confidence is an **uncalibrated signal-strength heuristic**, not a statistical probability. Autocorrelation alone does not set the strong-periodicity status. Thresholds are exploratory controls, not a universal significance test.
+FFT detection uses local maxima, DC exclusion, minimum separation, and a relative-to-median-background score. A separate spectral-concentration factor, compensated for zero-padding, prevents large noise outliers from automatically becoming strong findings. The displayed 0–1 confidence is an **uncalibrated signal-strength heuristic**, not a statistical probability. Circular autocorrelation candidates alone do not set the strong-periodicity status; a separately verified native horizontal repeat can. Thresholds are exploratory controls, not a universal significance test.
 
 JPEG blocks, resizing, scanlines, moiré, image boundaries and ordinary textures can all create peaks. Windows broaden peaks; aggressive detrending can remove the signal of interest; downsampling may suppress/alias high-frequency content; padding and circular wraparound affect interpretation. Weak/no findings do not rule out steganography. Inspect stability across channels, crops, windows and scales before drawing a conclusion.
 
+## Magic Eye / random-dot stereograms
+
+Random-dot stereograms can have a strong horizontal repeat without concentrated FFT energy. Area averaging can also destroy their native-pixel correspondence. The workbench therefore runs an independent horizontal matching pass without lowering the FFT noise threshold.
+
+1. Open the image and look for **Horizontal repeat** in Findings. Its period is already in original-image pixels, unlike FFT/AC candidates' analyzed-pixel periods. All candidates also show original-pixel period estimates.
+2. Select **Stereogram disparity** (立体图视差) to inspect local separation changes. Blue marks unmatched or ambiguous pixels; brighter gray means larger signed disparity. Hover for the original coordinate and signed value. Display gamma changes contrast only.
+3. Export **Stereogram disparity PNG** or **JSON report**. The report includes the native period, correlation, row support, search bounds, matching coverage and thresholds, but no image or disparity buffers. The view/export is disabled when no supported repeat is found.
+
+The native pass uses the selected ROI and channel, but intentionally ignores FFT resampling, analysis gamma, normalization, detrending, window, padding and FFT/AC detection controls. Its current automatic search is fixed to `8..min(1024, floor((ROI.width-1)/3))` original pixels and requires at least 8 rows. It samples up to 32 rows, correlates first differences with nonwrapping overlap-normalized Pearson correlation, and requires correlation ≥ 0.55, row support ≥ 60% at correlation ≥ 0.35, and local peak prominence ≥ 0.15. It chooses the shortest accepted peak within 90% of the strongest score to reduce harmonic selection.
+
+Local matching searches integer separations from `max(2, floor(0.55 × period))` through `ceil(1.05 × period)` using 11-pixel horizontal SSD windows. A match needs texture variance, cost no greater than that variance, and ≥ 0.15 uniqueness over the runner-up; at least 25% of output samples must match. Disparity is `period - local separation`, located at the right correspondence endpoint, **not calibrated physical depth**. Unsupported borders are not wrapped. The grayscale range includes both negative and positive supported disparities.
+
+These are conservative heuristics, not a general stereogram decoder: vertical repeats, very short/large periods, heavy compression/resizing, broad correlation peaks, or depth changes outside the search range can be missed. Ordinary tiled texture can pass. Neither a repeat nor a disparity image proves hidden text; the tool does not OCR or guess a payload.
+
+### Algorithm references
+
+The native-row approach was informed by Jérémie Piellard's [stereogram-solver processing](https://github.com/piellardj/stereogram-solver/blob/ef4e8251dde6d7ecd4856bc43be70fe3ec5484f3/src/ts/processing.ts) and [visualization](https://github.com/piellardj/stereogram-solver/blob/ef4e8251dde6d7ecd4856bc43be70fe3ec5484f3/src/ts/visualization.ts): that solver estimates a global RGB difference offset and displays its difference contours, not dense depth. The [stereogram-webgl shader](https://github.com/piellardj/stereogram-webgl/blob/44ceea39f4d9948f3abfc526f185eac8406dc6ce/src/shaders/stereogram.frag) shortens local stripe spacing with height, motivating a wider local separation search. This project's Pearson/SSD implementation is independent; no upstream runtime dependency or source was vendored.
+
 ## Exports
 
-- JSON report: tool version, timestamp, image metadata (no pixels), every parameter, preprocessing dimensions/scales, FFT convention, candidates, statistics, warnings and caveats.
-- PNG: original image, preprocessed data, FFT heatmap, autocorrelation heatmap, or the four labeled profile plots. Heatmap PNGs include axes and selected overlays/zoom; the interactive coordinate readout and findings remain in the UI/JSON report.
+- JSON report: tool version, timestamp, image metadata (no pixels), every parameter, preprocessing dimensions/scales, FFT convention, candidates, native horizontal repeat diagnostics when present, statistics, warnings and caveats.
+- PNG: original image, preprocessed data, FFT heatmap, autocorrelation heatmap, stereogram disparity when available, or the four labeled profile plots. Heatmap PNGs include axes and selected overlays/zoom; the interactive coordinate readout and findings remain in the UI/JSON report.
 - Preset JSON: all analysis/display parameters, suitable for reloading with the same input image. Presets do not contain the image.
 
 Composite report PNG export is not implemented. Browser decoding is the remaining platform-dependent part of reproduction.
@@ -94,9 +112,9 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Unit tests compare complex FFTs with direct DFT, inverse roundtrips, odd-size shifts, a NumPy-generated numerical oracle, direct/FFT AC agreement, periods 8/16/32, horizontal/both-axis structure, conservative noise, constant/RGB/Alpha inputs, ROI, downsampling, padding, validation and Worker races. Fixtures in `web/tests/fixtures/` are reproducibly generated synthetic images, not photographs.
+Unit tests compare complex FFTs with direct DFT, inverse roundtrips, odd-size shifts, a NumPy-generated numerical oracle, direct/FFT AC agreement, periods 8/16/32, horizontal/both-axis structure, conservative noise, constant/RGB/Alpha inputs, ROI, downsampling, padding, validation and Worker races. Native matching regressions use an independent copy-constraint random-dot generator: original-pixel periods, positive/negative local disparity, harmonic rejection, noise/gradient/edge controls, FFT averaging cancellation, ROI/channel invariance, work bounds and signed rendering. Fixtures in `web/tests/fixtures/` are reproducibly generated synthetic images, not photographs.
 
-Playwright exercises PNG drag/drop and JPEG file selection, real plots, analysis/display controls, report and PNG downloads, preset roundtrips, corrupt/empty/oversize input, 1024-pixel responsiveness, rapid-change supersession, replacement loads, a 390-pixel viewport and reduced motion. Locale regressions additionally cover saved/blocked storage, unchanged ROI/parameters/reports, switching during a pending Worker, translated errors and treating filenames as text. Automated browser verification currently targets Chromium; recent Firefox/Safari provide the required APIs but are not part of the tested matrix.
+Playwright exercises PNG drag/drop and JPEG file selection, real plots, analysis/display controls, report and PNG downloads, preset roundtrips, corrupt/empty/oversize input, 1024-pixel responsiveness, rapid-change supersession, replacement loads, a 390-pixel viewport and reduced motion. Locale regressions additionally cover saved/blocked storage, unchanged ROI/parameters/reports, switching during a pending Worker, translated errors and treating filenames as text. Stereogram cases cover native period reporting, disparity PNG, locale persistence and cleanup when replacing the image with noise. Automated browser verification currently targets Chromium; recent Firefox/Safari provide the required APIs but are not part of the tested matrix.
 
 Detailed execution evidence, review repairs and verification limits: [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
@@ -109,7 +127,7 @@ python -m periodic_stego demo --output /tmp/periodic-stego-demo
 python -m periodic_stego analyze image.png --json report.json --diagnostics diagnostics/
 ```
 
-The CLI uses mean removal, no window and no resampling. For numerical comparison, use those same settings in the web app. Detection heuristics and report schemas intentionally differ; Python remains a legacy reference, not a bit-for-bit clone of the full web UI. Its autocorrelation output now uses true `lag_pixels` / `period_pixels` and `normalized_correlation` rather than the former incorrect frequency-profile interpretation. The legacy positive-power median heuristic can still miss a pure noiseless two-pixel alternating pattern even when the spectral profile correctly reports its peak; inspect the profiles rather than relying on the summary boolean.
+The CLI uses mean removal, no window and no resampling. For numerical comparison, use those same settings in the web app. Detection heuristics and report schemas intentionally differ; Python remains a legacy reference, not a bit-for-bit clone of the full web UI, and does not implement the native stereogram/disparity pass. Its autocorrelation output now uses true `lag_pixels` / `period_pixels` and `normalized_correlation` rather than the former incorrect frequency-profile interpretation. The legacy positive-power median heuristic can still miss a pure noiseless two-pixel alternating pattern even when the spectral profile correctly reports its peak; inspect the profiles rather than relying on the summary boolean.
 
 ## Deployment
 

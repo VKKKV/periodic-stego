@@ -11,6 +11,7 @@ import {
   type PlotRect,
 } from "../render/heatmap";
 import { drawProfiles } from "../render/profile";
+import { disparityCanvas } from "../render/disparity";
 import { bindStaticText, getLocale, setLocale, t } from "../i18n";
 interface Callbacks {
   onAnalysis: (p: AnalysisParams) => void;
@@ -37,17 +38,18 @@ export function mountUI(
     rect: PlotRect | null = null,
     hasAlpha = false;
   let images: Record<string, HTMLCanvasElement> = {};
-  root.innerHTML = `<header class="masthead"><div class="brand">PERIODIC<span> / STEGO</span><small>LOCAL IMAGE ANALYSIS WORKBENCH</small></div><div class="header-actions"><span class="local-badge">LOCAL ONLY</span><select id="language" aria-label="Language / 语言"><option value="en" lang="en">English</option><option value="zh-CN" lang="zh-CN">中文</option></select><button id="parameters-toggle" aria-expanded="false" aria-controls="parameters">Parameters</button><label class="button primary">Open image<input id="image-file" type="file" accept="image/png,image/jpeg" hidden></label><select aria-label="Export diagnostic" id="export-select"><option value="report">JSON report</option><option value="fft">FFT PNG</option><option value="autocorrelation">Autocorrelation PNG</option><option value="profiles">Profiles PNG</option><option value="preprocessed">Preprocessed PNG</option><option value="original">Original PNG</option></select><button id="export-button">Export</button></div></header>
+  root.innerHTML = `<header class="masthead"><div class="brand">PERIODIC<span> / STEGO</span><small>LOCAL IMAGE ANALYSIS WORKBENCH</small></div><div class="header-actions"><span class="local-badge">LOCAL ONLY</span><select id="language" aria-label="Language / 语言"><option value="en" lang="en">English</option><option value="zh-CN" lang="zh-CN">中文</option></select><button id="parameters-toggle" aria-expanded="false" aria-controls="parameters">Parameters</button><label class="button primary">Open image<input id="image-file" type="file" accept="image/png,image/jpeg" hidden></label><select aria-label="Export diagnostic" id="export-select"><option value="report">JSON report</option><option value="fft">FFT PNG</option><option value="autocorrelation">Autocorrelation PNG</option><option value="profiles">Profiles PNG</option><option value="preprocessed">Preprocessed PNG</option><option value="original">Original PNG</option><option value="stereogram" disabled>Stereogram disparity PNG</option></select><button id="export-button">Export</button></div></header>
     <div class="workstation"><aside id="parameters">${controlsHTML()}</aside><main class="workspace"><div class="source-bar"><span id="image-meta">No image loaded</span><label>Fixture <select id="demo" aria-label="Synthetic fixture"><option value="vertical">Vertical · 16 px</option><option value="horizontal">Horizontal · 16 px</option><option value="both">Both axes · 16 px</option><option value="noise">Noise only</option><option value="constant">Constant</option></select></label><button id="demo-button">Run demo</button></div>
     <div id="error" role="alert" hidden></div><div class="view-tabs" role="tablist" aria-label="Image views">${[
       ["original", "Original"],
       ["preprocessed", "Preprocessed"],
       ["fft", "FFT spectrum"],
       ["autocorrelation", "Autocorrelation"],
+      ["stereogram", "Stereogram disparity"],
     ]
       .map(
         ([v, l]) =>
-          `<button role="tab" aria-selected="${v === "original"}" data-view="${v}">${l}</button>`,
+          `<button role="tab" aria-selected="${v === "original"}" ${v === "stereogram" ? "disabled" : ""} data-view="${v}">${l}</button>`,
       )
       .join("")}</div>
     <div class="canvas-stage" data-testid="drop-zone"><div id="empty"><span class="eyebrow">START AN EXPERIMENT</span><h1>Find the rhythm.<br>Question the signal.</h1><p>Drop a PNG or JPEG here.<br>Inspect repeated structure, one parameter at a time.</p><p class="privacy">Your image stays in this browser.<br>No upload. No account. No cloud analysis.</p></div><canvas id="main-canvas" data-testid="main-canvas" aria-label="Interactive image diagnostic" hidden></canvas></div>
@@ -62,6 +64,22 @@ export function mountUI(
     root.querySelector<T>(selector)!;
   const main = $<HTMLCanvasElement>("#main-canvas"),
     profiles = $<HTMLCanvasElement>("#profile-canvas");
+  function syncStereoView() {
+    const available = Boolean(result?.stereogram);
+    $<HTMLButtonElement>('[data-view="stereogram"]').disabled = !available;
+    $<HTMLOptionElement>('#export-select option[value="stereogram"]').disabled =
+      !available;
+    if (
+      !available &&
+      $<HTMLSelectElement>("#export-select").value === "stereogram"
+    )
+      $<HTMLSelectElement>("#export-select").value = "report";
+    if (!available && kind === "stereogram") {
+      kind = "original";
+      for (const tab of root.querySelectorAll<HTMLElement>("[data-view]"))
+        tab.setAttribute("aria-selected", String(tab.dataset.view === kind));
+    }
+  }
   function render() {
     const image = kind === "original" ? original : images[kind];
     $("#empty").hidden = Boolean(original);
@@ -75,9 +93,11 @@ export function mountUI(
     $("#units").textContent = t(
       kind === "original"
         ? "original pixels"
-        : kind === "autocorrelation"
-          ? "circular lag · analyzed px"
-          : "analyzed pixels",
+        : kind === "stereogram"
+          ? "disparity · original px · blue = unmatched"
+          : kind === "autocorrelation"
+            ? "circular lag · analyzed px"
+            : "analyzed pixels",
     );
   }
   function findings() {
@@ -85,7 +105,9 @@ export function mountUI(
       if (original) $("#verdict").textContent = t("Evidence, not a verdict.");
       return;
     }
-    $("#candidate-count").textContent = String(result.candidates.length);
+    $("#candidate-count").textContent = String(
+      result.candidates.length + (result.stereogram ? 1 : 0),
+    );
     $("#verdict").replaceChildren();
     const h = document.createElement("h2");
     h.textContent = t(
@@ -103,15 +125,33 @@ export function mountUI(
     );
     const list = $("#candidates");
     const openCaveats = Array.from(
-      list.querySelectorAll("details"),
+      list.querySelectorAll<HTMLDetailsElement>(".candidate details"),
       (el) => el.open,
     );
     list.replaceChildren();
+    const stereo = result.stereogram;
+    if (stereo) {
+      const item = document.createElement("article");
+      item.className = "candidate stereo-candidate";
+      const title = document.createElement("h3");
+      title.textContent = `${t("Horizontal repeat")} · ${stereo.period} ${t("original px")}`;
+      const body = document.createElement("p");
+      body.textContent = `${t("Native row matching")}\n${t("Correlation")} ${stereo.correlation.toFixed(3)} · ${t("Row support")} ${(100 * stereo.rowSupport).toFixed(0)}%\n${t("Matched pixels")} ${(100 * stereo.matchedFraction).toFixed(0)}%`;
+      const note = document.createElement("p");
+      note.textContent = t(
+        "Native ROI/channel pass, independent of FFT controls. Horizontal repetition may be a stereogram or tiled texture. View disparity; it is not decoded text or metric depth.",
+      );
+      item.append(title, body, note);
+      list.append(item);
+    }
+    let caveatIndex = 0;
     for (const c of result.candidates) {
       const item = document.createElement("article");
       item.className = "candidate";
       const title = document.createElement("h3");
       title.textContent = `${c.axis.toUpperCase()} · ${(c.periodX ?? c.periodY ?? 0).toFixed(2)} px`;
+      const originalPeriod = document.createElement("p");
+      originalPeriod.textContent = `${t("Original period")} X ${c.periodX === null ? "—" : (c.periodX * result.scaleX).toFixed(2)} · Y ${c.periodY === null ? "—" : (c.periodY * result.scaleY).toFixed(2)} px`;
       const body = document.createElement("p");
       body.textContent = t(
         `${c.source}\nfx ${c.frequencyX?.toFixed(5) ?? "—"} · fy ${c.frequencyY?.toFixed(5) ?? "—"} cyc/px\nPx ${c.periodX?.toFixed(2) ?? "—"} · Py ${c.periodY?.toFixed(2) ?? "—"}\nPower ${c.power.toExponential(2)} · relative ${c.relativePower.toPrecision(3)}\nSignal score ${c.confidence.toFixed(2)} / 1 (uncalibrated)`,
@@ -119,11 +159,11 @@ export function mountUI(
       const details = document.createElement("details"),
         summary = document.createElement("summary"),
         text = document.createElement("p");
-      details.open = openCaveats[list.children.length] ?? false;
+      details.open = openCaveats[caveatIndex++] ?? false;
       summary.textContent = t("Caveats");
       text.textContent = c.caveats.map(t).join(" ");
       details.append(summary, text);
-      item.append(title, body, details);
+      item.append(title, originalPeriod, body, details);
       list.append(item);
     }
     $("#warnings").replaceChildren();
@@ -346,6 +386,7 @@ export function mountUI(
       drag = null;
       result = null;
       images = {};
+      syncStereoView();
       profiles.hidden = true;
       $("#profile-empty").hidden = false;
       $("#result-note").hidden = true;
@@ -366,6 +407,7 @@ export function mountUI(
       const remapFFT = remap || images.fft?.dataset.spectrum !== nextD.spectrum;
       result = next;
       d = structuredClone(nextD);
+      syncStereoView();
       images = {
         preprocessed:
           !remap && images.preprocessed
@@ -399,6 +441,8 @@ export function mountUI(
               ),
       };
       images.fft.dataset.gamma = String(d.gamma);
+      if (next.stereogram)
+        images.stereogram = disparityCanvas(next.stereogram, d.gamma);
       images.fft.dataset.spectrum = d.spectrum;
       render();
       findings();

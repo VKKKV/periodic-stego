@@ -2,7 +2,21 @@
 
 Verified locally on 2026-09-09 with Node 26.8.1, npm 12.0.2, Python 3.14.7 and Playwright Chromium. CI uses Node 24 and Python 3.12. This records observed results, not a claim of complete numerical or security coverage.
 
-## Acceptance evidence
+## Magic Eye continuation — local evidence before licensing
+
+The browser's FFT-only strong-signal gate missed a supplied 2000 × 1000 RGB random-dot image despite a visible circular-AC candidate. Native row matching now provides independent evidence without weakening spectral concentration. The source image is not checked into the repository.
+
+- A clean working-tree snapshot of current source (including intended new files) passed `npm ci --ignore-scripts`, formatting, **67 unit tests** and the TypeScript/Vite production build. The snapshot ran **21 Chromium cases twice: 42 passed**, including the new disparity cases. Existing Python tests remain **37 passed**; the legacy Python detector was not redesigned.
+- Actual file input, Worker analysis, report download and Chinese disparity PNG export succeeded against both Vite dev and the production preview with no page exceptions. Native period **120 original pixels**, correlation **0.8822383046616926**, prominence **0.8699011045935245**, support **32/32 rows**; strong-periodicity status is true. One production run took 430 ms, an observation rather than a performance guarantee.
+- The 512 × 256 diagnostic searches local separations 66..126 original pixels. Matched fraction is **0.905517578125**. A separate NumPy implementation using direct overlap Pearson and direct 11-pixel SSD windows (not the TypeScript FFT/prefix-sum code) matched all **131,072** disparity/invalid samples exactly. Its correlation was **0.8822383046616935**. The largest disparity populations were 0 and 20 pixels; no hidden text is inferred from those numbers.
+- Regression inputs use independent random-dot copy constraints, not Fourier stripes. They cover original periods 8/31/120/213, a 1024-pixel repeat in a 16384-pixel-wide input, known positive and negative disparity, complete signal cancellation by FFT downsampling, ROI/channel behavior, noise, quantized gradients, single edges, smooth nonperiodic texture, vertical repeats, and report buffer exclusion. Additional read-only review checks covered 48 independent-noise seeds, 8 quantized ramp slopes, small dimensions, direct Pearson agreement, ROI readout and actual transferable-buffer detachment/NaN preservation; the parent reran these checks against current source.
+- Independent review caught a signed-rendering defect: valid -4-pixel disparity was clipped to the same black as zero. The grayscale range now includes the negative search endpoint. The pixel regression failed before the fix and passes afterward; another read-only acceptance check confirmed distinct -4/0 colors at gamma 0.5/1/2. Chromium additionally verifies foreground/background pixels and the exported PNG after disabling grid overlays/interpolation, since PNG export intentionally rerenders at a fixed width rather than copying the viewport Canvas.
+
+Current scope remains horizontal, integer native-pixel repeats with fixed bounds/heuristics, not universal stereogram recognition, OCR or calibrated depth. Ordinary tiled texture can pass; compression, broad peaks, large depth excursions and out-of-range periods may fail. The algorithm and pinned upstream references are documented in [README.md](../README.md#magic-eye--random-dot-stereograms).
+
+PNG files were decoded and verified, and Canvas/geometry/interaction checks passed. The separate vision tool returned a provider routing error (`MissingSessionID`), so no visual reading of hidden letters or complete aesthetic assessment is claimed. This section records local verification. Check the commit-specific GitHub Actions run for publication status; the historical deployment evidence below does not identify the current release.
+
+## Earlier acceptance evidence (before native matching)
 
 - `python -m pytest -q`: 37 passed, including spectral endpoints/conjugates, invalid arrays, 16-bit PNG preservation and period-2 synthetic fixtures. Also passed from a fresh virtual environment after `python -m pip install -e '.[dev]'`.
 - `npm run format:check`: passed.

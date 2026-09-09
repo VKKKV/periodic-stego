@@ -1,5 +1,6 @@
 import { fft2d, shift2d } from "./fft";
 import { preprocess } from "./preprocess";
+import { analyzeStereogram } from "./stereogram";
 import { fftProfilePeaks, fft2dPeaks, acPeaks } from "./peaks";
 import type { AnalysisInput, AnalysisResult } from "./types";
 export function analyze(
@@ -73,26 +74,29 @@ export function analyze(
         ...acPeaks(acY, "y", p),
       ]
     : [];
+  progress("Native row matching", 0.9);
+  const stereogram = analyzeStereogram(input);
   const warnings = [
     ...prepared.warnings,
     "Circular autocorrelation wraps across the padded grid; edge lags can be misleading.",
     "Periodicity is repeated structure, not proof of hidden text. JPEG blocks, resampling, moire and normal textures also create peaks.",
     "Confidence is an uncalibrated signal-strength heuristic, not a probability.",
   ];
-  if (!usefulSignal)
+  if (!usefulSignal && !stereogram)
     warnings.unshift(
       "No useful signal: the processed image is constant or has negligible variance.",
     );
   if (!p.removeMean)
     warnings.push("Mean removal is disabled: DC/window leakage may dominate.");
   const strongPeriodicity =
-    usefulSignal &&
-    candidates.some(
-      (c) =>
-        c.source !== "autocorrelation" &&
-        c.relativePower >= Math.max(8, p.relativeThreshold) &&
-        c.confidence >= 0.75,
-    );
+    Boolean(stereogram) ||
+    (usefulSignal &&
+      candidates.some(
+        (c) =>
+          c.source !== "autocorrelation" &&
+          c.relativePower >= Math.max(8, p.relativeThreshold) &&
+          c.confidence >= 0.75,
+      ));
   progress("Complete", 1);
   return {
     width: w,
@@ -108,11 +112,12 @@ export function analyze(
     autocorrelation,
     profiles: { fftX, fftY, acX, acY },
     candidates,
+    stereogram,
     warnings,
     stats: {
       mean,
       stddev,
-      usefulSignal,
+      usefulSignal: usefulSignal || Boolean(stereogram),
       strongPeriodicity,
       elapsedMs: performance.now() - start,
     },

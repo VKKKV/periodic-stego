@@ -61,6 +61,25 @@ export interface AnalysisInput {
   height: number;
   params: AnalysisParams;
 }
+export interface StereogramResult {
+  period: number;
+  correlation: number;
+  prominence: number;
+  rowSupport: number;
+  sampledRows: number;
+  minPeriod: number;
+  maxPeriod: number;
+  minSeparation: number;
+  maxSeparation: number;
+  width: number;
+  height: number;
+  scaleX: number;
+  scaleY: number;
+  matchedFraction: number;
+  // Original ROI pixel units. NaN marks unsupported/ambiguous matches.
+  disparity: Float64Array;
+  matchConfidence: Float64Array;
+}
 export interface AnalysisResult {
   width: number;
   height: number;
@@ -80,6 +99,7 @@ export interface AnalysisResult {
     acY: Float64Array;
   };
   candidates: PeriodCandidate[];
+  stereogram: StereogramResult | null;
   warnings: string[];
   stats: {
     mean: number;

@@ -14,6 +14,9 @@ scope.onmessage = ({ data }) => {
       result.power,
       result.autocorrelation,
       ...Object.values(result.profiles),
+      ...(result.stereogram
+        ? [result.stereogram.disparity, result.stereogram.matchConfidence]
+        : []),
     ];
     const buffers = [
       ...new Set(arrays.map((array) => array.buffer as ArrayBuffer)),

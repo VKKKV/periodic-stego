@@ -82,7 +82,8 @@ export function drawImageView(
   ctx.fillStyle = "#090d11";
   ctx.fillRect(0, 0, width, height);
   const spectral = kind === "fft",
-    ac = kind === "autocorrelation";
+    ac = kind === "autocorrelation",
+    stereo = kind === "stereogram" ? result?.stereogram : null;
   const zoom = spectral ? d.frequencyZoom : 1;
   const sw = image.width / zoom,
     sh = image.height / zoom,
@@ -197,7 +198,9 @@ export function drawImageView(
       ? "fx · cycles / analyzed px"
       : ac
         ? "lag X · analyzed px"
-        : "X · image pixels";
+        : stereo
+          ? "X · original pixels"
+          : "X · image pixels";
     ctx.fillText(t(xLabel), 32, height - 9);
     ctx.fillText(t(spectral ? "fy" : ac ? "lag Y" : "Y"), 5, 16);
     for (let k = 0; k <= 4; k++) {
@@ -206,7 +209,11 @@ export function drawImageView(
         ? (sample - Math.floor(image.width / 2)) / image.width
         : ac
           ? sample - Math.floor(image.width / 2)
-          : sample;
+          : stereo
+            ? (result?.params.roi?.x ?? 0) +
+              (sample + 0.5) * stereo.scaleX -
+              0.5
+            : sample;
       ctx.fillText(
         spectral ? v.toFixed(3) : Math.round(v).toString(),
         left + (dw * k) / 4 - 10,
@@ -217,7 +224,11 @@ export function drawImageView(
         ? (sampleY - Math.floor(image.height / 2)) / image.height
         : ac
           ? sampleY - Math.floor(image.height / 2)
-          : sampleY;
+          : stereo
+            ? (result?.params.roi?.y ?? 0) +
+              (sampleY + 0.5) * stereo.scaleY -
+              0.5
+            : sampleY;
       ctx.fillText(
         spectral ? valueY.toFixed(3) : Math.round(valueY).toString(),
         2,
@@ -251,6 +262,17 @@ export function readout(
   )
     return t("Outside image");
   if (!result || kind === "original") return t(`x ${x} · y ${y} original px`);
+  if (kind === "stereogram" && result.stereogram) {
+    const stereo = result.stereogram;
+    if (x < 0 || y < 0 || x >= stereo.width || y >= stereo.height)
+      return t("Outside image");
+    const value = stereo.disparity[y * stereo.width + x];
+    const originalX =
+      (result.params.roi?.x ?? 0) + Math.floor((x + 0.5) * stereo.scaleX);
+    const originalY =
+      (result.params.roi?.y ?? 0) + Math.floor((y + 0.5) * stereo.scaleY);
+    return `${t(`x ${originalX} · y ${originalY} original px`)} | ${t("Disparity")} ${Number.isFinite(value) ? value : t("Unmatched")} px`;
+  }
   if (x < 0 || y < 0 || x >= result.width || y >= result.height)
     return t("Outside image");
   if (kind === "fft") {

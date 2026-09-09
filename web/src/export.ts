@@ -10,6 +10,7 @@ export function createReport(
   result: AnalysisResult,
   display: DisplayParams,
 ) {
+  const stereo = result.stereogram;
   return {
     schema: "periodic-stego-report/v1",
     toolVersion: TOOL_VERSION,
@@ -31,6 +32,43 @@ export function createReport(
     },
     fftConvention: FFT_CONVENTION,
     candidates: result.candidates,
+    stereogram: stereo
+      ? {
+          method: "native-row-gradient-pearson/v1",
+          units:
+            "original ROI pixels; independent of FFT resampling, gamma, detrending, window and padding",
+          channel: result.params.channel,
+          roi: result.params.roi,
+          period: stereo.period,
+          correlation: stereo.correlation,
+          prominence: stereo.prominence,
+          rowSupport: stereo.rowSupport,
+          sampledRows: stereo.sampledRows,
+          periodSearch: [stereo.minPeriod, stereo.maxPeriod],
+          thresholds: {
+            correlation: 0.55,
+            rowCorrelation: 0.35,
+            rowSupport: 0.6,
+            matchedFraction: 0.25,
+            prominence: 0.15,
+          },
+          disparity: {
+            method: "horizontal-window-ssd/v1",
+            definition:
+              "period minus local separation, at the right correspondence endpoint; not metric depth",
+            separationSearch: [stereo.minSeparation, stereo.maxSeparation],
+            windowRadius: 5,
+            minimumUniqueness: 0.15,
+            width: stereo.width,
+            height: stereo.height,
+            scaleX: stereo.scaleX,
+            scaleY: stereo.scaleY,
+            matchedFraction: stereo.matchedFraction,
+          },
+          caveat:
+            "Horizontal repetition also occurs in ordinary tiled texture. Disparity is a diagnostic, not proof of a stereogram or decoded text.",
+        }
+      : null,
     warnings: result.warnings,
     stats: result.stats,
     caveats: [

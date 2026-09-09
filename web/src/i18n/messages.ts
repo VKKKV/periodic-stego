@@ -1,4 +1,23 @@
 export const messages: Record<string, string> = {
+  "Native row matching": "原始扫描行匹配",
+  "Stereogram disparity": "立体图视差",
+  "Stereogram disparity PNG": "立体图视差 PNG",
+  stereogram: "立体图视差",
+  "Horizontal repeat": "水平重复",
+  "original px": "原图像素",
+  "Original period": "原图周期",
+  "X · original pixels": "X · 原图像素",
+  Correlation: "相关值",
+  "Row support": "扫描行支持率",
+  "Matched pixels": "匹配像素",
+  Disparity: "视差",
+  Unmatched: "未匹配",
+  "disparity · original px · blue = unmatched":
+    "视差 · 原图像素 · 蓝色为未匹配",
+  "Native ROI/channel pass, independent of FFT controls. Horizontal repetition may be a stereogram or tiled texture. View disparity; it is not decoded text or metric depth.":
+    "按原始 ROI / 通道独立检测，不受 FFT 控件影响。水平重复可能来自立体图或平铺纹理。可查看视差；它不是解码文本，也不是物理深度。",
+  "Horizontal repetition also occurs in ordinary tiled texture. Disparity is a diagnostic, not proof of a stereogram or decoded text.":
+    "普通平铺纹理也有水平重复。视差是诊断结果，不能证明存在立体图或解码文本。",
   "Repeated structure is not proof of hidden text.":
     "重复结构不是隐藏文本的证据。",
   "JPEG blocks, resizing, scanlines, moire and ordinary textures may produce peaks.":
