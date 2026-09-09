@@ -96,6 +96,8 @@ Unit tests compare complex FFTs with direct DFT, inverse roundtrips, odd-size sh
 
 Playwright exercises PNG drag/drop and JPEG file selection, real plots, analysis/display controls, report and PNG downloads, preset roundtrips, corrupt/empty/oversize input, 1024-pixel responsiveness, rapid-change supersession, replacement loads, a 390-pixel viewport and reduced motion. Automated browser verification currently targets Chromium; recent Firefox/Safari provide the required APIs but are not part of the tested matrix.
 
+Detailed execution evidence, review repairs and verification limits: [docs/VERIFICATION.md](docs/VERIFICATION.md).
+
 ## Python reference and batch fallback
 
 The preserved NumPy/Pillow CLI is a separate, simpler reference, not a server for the web app:
