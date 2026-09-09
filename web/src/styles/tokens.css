@@ -1,0 +1,53 @@
+:root {
+  color-scheme: dark;
+  --bg: #080c10;
+  --panel: #0b1015;
+  --ink: #e4edf2;
+  --muted: #92a7b5;
+  --rule: #25313a;
+  --accent: #64cff4;
+  --amber: #e5b865;
+  --error: #ff9696;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+.button {
+  cursor: pointer;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+.button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+[hidden] {
+  display: none !important;
+}
+button {
+  color: inherit;
+}
+button,
+input,
+select,
+.button {
+  border-radius: 0;
+}
+::selection {
+  background: #64cff455;
+}
