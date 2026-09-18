@@ -25,6 +25,36 @@ it.each([8, 31, 120, 213])(
     expect(analyzeStereogram(input)?.period).toBe(period);
   },
 );
+it("applies manual original-pixel period bounds and local separation ratios", () => {
+  const input = randomDotInput(960, 240, 120, 48);
+  expect(
+    analyzeStereogram({
+      ...input,
+      params: { ...input.params, stereogramMaxPeriodPx: 119 },
+    }),
+  ).toBeNull();
+  const harmonic = analyzeStereogram({
+    ...input,
+    params: { ...input.params, stereogramMinPeriodPx: 121 },
+  });
+  expect(harmonic?.period).toBe(240);
+  const narrowed = analyzeStereogram({
+    ...input,
+    params: {
+      ...input.params,
+      stereogramMinPeriodPx: 120,
+      stereogramMaxPeriodPx: 120,
+      stereogramMinSeparationRatio: 0.58,
+      stereogramMaxSeparationRatio: 1,
+    },
+  })!;
+  expect(narrowed.period).toBe(120);
+  expect(narrowed.minPeriod).toBe(120);
+  expect(narrowed.maxPeriod).toBe(120);
+  expect(narrowed.minSeparation).toBe(69);
+  expect(narrowed.maxSeparation).toBe(120);
+  expect(narrowed.matchedFraction).toBeGreaterThan(0.25);
+});
 it.each([20, 48, -4])(
   "recovers local disparity %i, with unsupported borders masked",
   (depth) => {
@@ -39,6 +69,30 @@ it.each([20, 48, -4])(
     expect(r.matchedFraction).toBeGreaterThan(0.6);
   },
 );
+it.each([
+  { depth: -16, minRatio: 0.55, maxRatio: 1.2 },
+  { depth: 20, minRatio: 0.55, maxRatio: 1.05 },
+  { depth: 56, minRatio: 0.4, maxRatio: 1.05 },
+])(
+  "calibrates signed wide depth $depth in independent color texture",
+  ({ depth, minRatio, maxRatio }) => {
+    const input = randomDotInput(1152, 240, 144, depth, 0x51a7c0de);
+    input.params.stereogramMinSeparationRatio = minRatio;
+    input.params.stereogramMaxSeparationRatio = maxRatio;
+    const r = analyzeStereogram(input)!;
+    const values = [...r.disparity].filter(Number.isFinite);
+    expect(r.period).toBe(144);
+    expect(values).toContain(depth);
+    expect(values).toContain(0);
+    expect(r.matchedFraction).toBeGreaterThan(0.5);
+  },
+);
+it("calibration corpus keeps independent color noise negative", () => {
+  const detections = [3, 41, 977, 65521].filter((seed) =>
+    analyzeStereogram(randomDotInput(768, 96, 0, 0, seed)),
+  );
+  expect(detections, `false positives: ${detections.join(", ")}`).toEqual([]);
+});
 it("does not lose random dots when FFT area averaging cancels the entire signal", () => {
   const input = randomDotInput(1024, 64, 64, 0);
   // Pair every random value with its complement: 8x8 area averages are constant.
@@ -136,6 +190,14 @@ it("exports numerical evidence without source pixels or disparity buffers", () =
   );
   expect(report.stereogram.period).toBe(120);
   expect(report.stereogram.units).toContain("original ROI pixels");
+  expect(report.stereogram.configuredPeriodSearch).toEqual({
+    minimumOriginalRoiPx: 8,
+    maximumOriginalRoiPx: "auto",
+  });
+  expect(
+    report.stereogram.disparity.configuredSeparationSearchPeriodRatio,
+  ).toEqual([0.55, 1.05]);
+  expect(report.stereogram.caveat).toContain("not a decoder");
   expect(report.stereogram.disparity).not.toHaveProperty("disparity");
   expect(report.stereogram).not.toHaveProperty("matchConfidence");
 });

@@ -44,6 +44,47 @@ const groups: [string, Spec[]][] = [
       ["acSeparation", "Lag separation (px)", "number", "", 1, 128, 1],
     ],
   ],
+  [
+    "Stereogram heuristic",
+    [
+      [
+        "stereogramMinPeriodPx",
+        "Minimum repeat period (original ROI px)",
+        "number",
+        "",
+        2,
+        1024,
+        1,
+      ],
+      [
+        "stereogramMaxPeriodPx",
+        "Maximum repeat period (original ROI px; 0 = auto)",
+        "number",
+        "",
+        0,
+        1024,
+        1,
+      ],
+      [
+        "stereogramMinSeparationRatio",
+        "Minimum local separation (× period)",
+        "number",
+        "",
+        0.01,
+        2,
+        0.01,
+      ],
+      [
+        "stereogramMaxSeparationRatio",
+        "Maximum local separation (× period)",
+        "number",
+        "",
+        0.01,
+        2,
+        0.01,
+      ],
+    ],
+  ],
 ];
 const display: Spec[] = [
   ["spectrum", "Spectrum display", "select", "magnitude,power,log-power"],
@@ -79,6 +120,14 @@ const hints: Record<string, string> = {
     "Peak power divided by median background power; this is not a probability.",
   acThreshold:
     "Peak correlation relative to zero-lag energy, including when display normalization is none.",
+  stereogramMinPeriodPx:
+    "Native-pixel horizontal repeat search lower bound. Default: 8 original ROI pixels.",
+  stereogramMaxPeriodPx:
+    "Native-pixel horizontal repeat search upper bound. Zero keeps the automatic min(1024, floor((ROI width - 1) / 3)) limit.",
+  stereogramMinSeparationRatio:
+    "Local horizontal match lower bound as a fraction of the detected repeat period. Default: 0.55.",
+  stereogramMaxSeparationRatio:
+    "Local horizontal match upper bound as a fraction of the detected repeat period. Default: 1.05.",
   gamma: "Display only: remaps heatmap intensities without recomputing FFT.",
   profilePan:
     "Pan from the first to the last available profile interval when zoomed.",

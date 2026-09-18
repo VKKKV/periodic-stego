@@ -3,14 +3,22 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { randomDotInput } from "../stereogram-fixture";
 
-async function loadDots(page: Page, depth = 20) {
+async function loadDots(
+  page: Page,
+  depth = 20,
+  options: {
+    type?: "image/png" | "image/jpeg";
+    scale?: number;
+    quality?: number;
+  } = {},
+) {
   const input = randomDotInput(960, 240, 120, depth);
   await page.locator("#image-file").evaluate(
-    async (element, input) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = input.width;
-      canvas.height = input.height;
-      canvas
+    async (element, { input, options }) => {
+      const source = document.createElement("canvas");
+      source.width = input.width;
+      source.height = input.height;
+      source
         .getContext("2d")!
         .putImageData(
           new ImageData(
@@ -21,15 +29,38 @@ async function loadDots(page: Page, depth = 20) {
           0,
           0,
         );
+      const scale = options.scale ?? 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(input.width * scale);
+      canvas.height = Math.round(input.height * scale);
+      const context = canvas.getContext("2d")!;
+      context.imageSmoothingEnabled = true;
+      context.drawImage(source, 0, 0, canvas.width, canvas.height);
+      const type = options.type ?? "image/png";
       const blob = await new Promise<Blob>((resolve) =>
-        canvas.toBlob((blob) => resolve(blob!)),
+        canvas.toBlob((blob) => resolve(blob!), type, options.quality),
       );
       const dt = new DataTransfer();
-      dt.items.add(new File([blob], "random-dot.png", { type: "image/png" }));
+      dt.items.add(
+        new File(
+          [blob],
+          type === "image/jpeg" ? "random-dot.jpg" : "random-dot.png",
+          {
+            type,
+          },
+        ),
+      );
       (element as HTMLInputElement).files = dt.files;
       element.dispatchEvent(new Event("change", { bubbles: true }));
     },
-    { width: input.width, height: input.height, rgba: Array.from(input.rgba) },
+    {
+      input: {
+        width: input.width,
+        height: input.height,
+        rgba: Array.from(input.rgba),
+      },
+      options,
+    },
   );
   await expect(page.locator("#app")).toHaveAttribute("data-current", "true");
 }
@@ -39,6 +70,42 @@ async function report(page: Page) {
   await page.locator("#export-button").click();
   return JSON.parse(await readFile((await (await pending).path())!, "utf8"));
 }
+
+test("manual native bounds control period and local disparity search", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await loadDots(page, 48);
+  await page
+    .locator("summary")
+    .filter({ hasText: "Stereogram heuristic" })
+    .click();
+  await page.getByLabel("Minimum repeat period (original ROI px)").fill("120");
+  await page
+    .getByLabel("Maximum repeat period (original ROI px; 0 = auto)")
+    .fill("120");
+  await page.getByLabel("Minimum local separation (× period)").fill("0.58");
+  await page.getByLabel("Maximum local separation (× period)").fill("1");
+  await expect(page.locator("#app")).toHaveAttribute("data-current", "true");
+  const result = await report(page);
+  expect(result.stereogram.periodSearch).toEqual([120, 120]);
+  expect(result.stereogram.disparity.separationSearch).toEqual([69, 120]);
+});
+
+test("JPEG and scaled browser decode calibration", async ({ page }) => {
+  await page.goto("./");
+  await loadDots(page, 20, { type: "image/jpeg", quality: 0.9 });
+  await expect(page.locator(".stereo-candidate")).toContainText(
+    "120 original px",
+  );
+  expect((await report(page)).stereogram.period).toBe(120);
+
+  await loadDots(page, 20, { scale: 0.5 });
+  await expect(page.locator(".stereo-candidate")).toContainText(
+    "60 original px",
+  );
+  expect((await report(page)).stereogram.period).toBe(60);
+});
 
 test("random-dot period, disparity export, locale persistence and replacement cleanup", async ({
   page,

@@ -87,6 +87,12 @@ export const zh = {
   "Minimum lag (px)": "最小滞后 (px)",
   "Peak threshold / zero lag": "峰阈值 / 零滞后",
   "Lag separation (px)": "滞后间距 (px)",
+  "Stereogram heuristic": "立体图启发式检测",
+  "Minimum repeat period (original ROI px)": "最小重复周期（原始 ROI 像素）",
+  "Maximum repeat period (original ROI px; 0 = auto)":
+    "最大重复周期（原始 ROI 像素；0 = 自动）",
+  "Minimum local separation (× period)": "最小局部分离距离（× 周期）",
+  "Maximum local separation (× period)": "最大局部分离距离（× 周期）",
   "Spectrum display": "频谱显示",
   "Display gamma": "显示 gamma",
   "Frequency zoom": "频率缩放",
@@ -157,6 +163,14 @@ export const zh = {
     "峰功率除以背景功率中位数；该比值不是概率。",
   "Peak correlation relative to zero-lag energy, including when display normalization is none.":
     "峰相关值相对于零滞后能量；显示归一化为“无”时也适用。",
+  "Native-pixel horizontal repeat search lower bound. Default: 8 original ROI pixels.":
+    "原生像素水平重复搜索下限。默认：8 个原始 ROI 像素。",
+  "Native-pixel horizontal repeat search upper bound. Zero keeps the automatic min(1024, floor((ROI width - 1) / 3)) limit.":
+    "原生像素水平重复搜索上限。设为 0 时保留自动上限 min(1024, floor((ROI 宽度 - 1) / 3))。",
+  "Local horizontal match lower bound as a fraction of the detected repeat period. Default: 0.55.":
+    "局部水平匹配下限，以检测到的重复周期比例表示。默认：0.55。",
+  "Local horizontal match upper bound as a fraction of the detected repeat period. Default: 1.05.":
+    "局部水平匹配上限，以检测到的重复周期比例表示。默认：1.05。",
   "Display only: remaps heatmap intensities without recomputing FFT.":
     "仅调整显示：映射热图强度，不重新计算 FFT。",
   "Pan from the first to the last available profile interval when zoomed.":

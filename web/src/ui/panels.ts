@@ -140,7 +140,7 @@ export function mountUI(
       body.textContent = `${t("Native row matching")}\n${t("Correlation")} ${stereo.correlation.toFixed(3)} · ${t("Row support")} ${(100 * stereo.rowSupport).toFixed(0)}%\n${t("Matched pixels")} ${(100 * stereo.matchedFraction).toFixed(0)}%`;
       const note = document.createElement("p");
       note.textContent = t(
-        "Native ROI/channel pass, independent of FFT controls. Horizontal repetition may be a stereogram or tiled texture. View disparity; it is not decoded text or metric depth.",
+        "Native ROI/channel pass, independent of FFT controls. This is a conservative heuristic, not a decoder. Horizontal repetition may be a stereogram or tiled texture; disparity is not decoded text or metric depth.",
       );
       item.append(title, body, note);
       list.append(item);

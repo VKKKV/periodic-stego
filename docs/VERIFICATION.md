@@ -12,6 +12,16 @@ The project now declares **AGPL-3.0-only** in the README, Python metadata and np
 
 These are implementation and packaging checks, not legal advice or a complete license-compliance audit. Publication status is separate from local tests; consult the workflow for the exact pushed commit.
 
+## Current follow-up verification
+
+Verified locally on 2026-09-13 against the current working tree:
+
+- Python: **38 passed**. Pure noiseless two-pixel alternating stripes now produce the Nyquist period-2 peak and `periodic_signal_detected: true` on both axes; the background median includes zero-power non-DC bins instead of selecting only positive bins.
+- Web unit tests and production build pass with strict validation for manual native period and local-separation bounds. Existing v1 presets that predate these four fields receive only their documented defaults; other missing fields remain errors.
+- Calibration covers color random-dot textures, independent color-noise negatives, signed local disparity including -16 and +56 pixels, browser JPEG encode/decode, and 0.5× browser scaling. These bounded synthetic cases do not establish a universal false-positive or false-negative rate.
+- The full Playwright suite passes locally in Chromium, Firefox and Playwright WebKit (**24 cases per engine**). WebKit was run in a Debian 12 container with Playwright-installed dependencies because the Arch host lacks the required compatibility libraries. A real macOS Safari release remains a separate manual compatibility target.
+- The Pages workflow pins the current native-Node-24 majors of checkout, setup-node, setup-python, upload-pages-artifact, configure-pages and deploy-pages by commit SHA. Publication and GitHub-hosted CI remain unverified until this working tree is committed and pushed.
+
 ## Magic Eye continuation — local evidence before licensing
 
 The browser's FFT-only strong-signal gate missed a supplied 2000 × 1000 RGB random-dot image despite a visible circular-AC candidate. Native row matching now provides independent evidence without weakening spectral concentration. The source image is not checked into the repository.
@@ -68,9 +78,9 @@ An early browser test was intermittently interrupted by Vite HMR after formattin
 
 ## Limits and deviations
 
-- Automated compatibility is verified in Chromium, not Firefox/Safari.
-- Python retains its legacy median-of-positive-power heuristic. A pure noiseless alternating two-pixel pattern now appears correctly in `spectral_profiles`, but can still return `periodic_signal_detected: false` (relative power 1). This is a known false negative, covered explicitly in `test_pure_nyquist_peak_preserves_existing_power_baseline`; it is not the browser detector and was not redesigned in this UI task.
-- Screenshot capture succeeded, but the separate vision-analysis tool failed. DOM geometry, overflow, Canvas data and interaction assertions were verified; a full visual assessment is not claimed.
+- Automated compatibility passes locally in Chromium, Firefox and Playwright WebKit; CI runs the complete suite in all three engines. The local WebKit run used a Debian 12 container because the Arch host lacks required compatibility libraries. Playwright WebKit is not proof of compatibility with an actual macOS Safari release, which still needs a manual check.
+- Python now computes its profile/2D relative-power baseline from all non-DC background bins, including zeros. Pure noiseless alternating two-pixel patterns produce a period-2 profile peak and `periodic_signal_detected: true` on both axes; this remains separate from the browser detector.
+- Current desktop and 390-pixel mobile screenshots received a manual visual inspection after these changes: no obvious clipping, overlap or horizontal overflow was found, and the collapsed stereogram control section remained readable. Automated Canvas and layout checks passed in Chromium, Firefox and WebKit; an actual Safari visual comparison remains outstanding.
 - Confidence is an uncalibrated signal-strength heuristic. Passing synthetic noise tests does not establish a universal false-positive rate or prove/disprove hidden content.
 - No composite report PNG, payload decoding, backend or arbitrary URL input.
 - Direct AC is limited to 32 × 32; larger direct-method input returns a readable error. Browser decoding/color handling may differ from Python.

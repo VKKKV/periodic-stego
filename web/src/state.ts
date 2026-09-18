@@ -22,6 +22,10 @@ export const DEFAULT_ANALYSIS: AnalysisParams = {
   minLag: 2,
   acThreshold: 0.25,
   acSeparation: 3,
+  stereogramMinPeriodPx: 8,
+  stereogramMaxPeriodPx: 0,
+  stereogramMinSeparationRatio: 0.55,
+  stereogramMaxSeparationRatio: 1.05,
 };
 export const DEFAULT_DISPLAY: DisplayParams = {
   spectrum: "log-power",
@@ -93,6 +97,10 @@ const analysisBounds: Record<string, [number, number, boolean?]> = {
   minLag: [1, 1024, true],
   acThreshold: [0, 1],
   acSeparation: [1, 128],
+  stereogramMinPeriodPx: [2, 1024, true],
+  stereogramMaxPeriodPx: [0, 1024, true],
+  stereogramMinSeparationRatio: [0.01, 2],
+  stereogramMaxSeparationRatio: [0.01, 2],
 };
 const displayBounds: Record<string, [number, number]> = {
   gamma: [0.1, 5],
@@ -161,7 +169,24 @@ function validateFields<T extends object>(
   return out as T;
 }
 export function validateAnalysis(value: unknown): AnalysisParams {
-  return validateFields(value, DEFAULT_ANALYSIS, analysisEnums, analysisBounds);
+  const result = validateFields(
+    value,
+    DEFAULT_ANALYSIS,
+    analysisEnums,
+    analysisBounds,
+  );
+  if (
+    result.stereogramMaxPeriodPx !== 0 &&
+    result.stereogramMinPeriodPx > result.stereogramMaxPeriodPx
+  )
+    throw new Error(
+      "Invalid stereogram period range: minimum must not exceed maximum.",
+    );
+  if (result.stereogramMinSeparationRatio > result.stereogramMaxSeparationRatio)
+    throw new Error(
+      "Invalid stereogram separation range: minimum must not exceed maximum.",
+    );
+  return result;
 }
 export function validateDisplay(value: unknown): DisplayParams {
   return validateFields(value, DEFAULT_DISPLAY, displayEnums, displayBounds);
@@ -179,8 +204,24 @@ export function parsePreset(text: string): {
   }
   if (!value || value.schema !== "periodic-stego-preset/v1")
     throw new Error("Unsupported preset schema.");
+  if (
+    !value.analysis ||
+    typeof value.analysis !== "object" ||
+    Array.isArray(value.analysis)
+  )
+    throw new Error("Invalid parameter object.");
+  const analysis = { ...value.analysis } as Record<string, unknown>;
+  // Presets saved before native search controls existed used the same v1 schema.
+  // Add only these newly introduced fields; all older required fields stay strict.
+  for (const key of [
+    "stereogramMinPeriodPx",
+    "stereogramMaxPeriodPx",
+    "stereogramMinSeparationRatio",
+    "stereogramMaxSeparationRatio",
+  ] as const)
+    if (!Object.hasOwn(analysis, key)) analysis[key] = DEFAULT_ANALYSIS[key];
   return {
-    analysis: validateAnalysis(value.analysis),
+    analysis: validateAnalysis(analysis),
     display: validateDisplay(value.display),
   };
 }

@@ -17,10 +17,12 @@ export const messages: Record<string, string> = {
   Unmatched: "未匹配",
   "disparity · original px · blue = unmatched":
     "视差 · 原图像素 · 蓝色为未匹配",
-  "Native ROI/channel pass, independent of FFT controls. Horizontal repetition may be a stereogram or tiled texture. View disparity; it is not decoded text or metric depth.":
-    "按原始 ROI / 通道独立检测，不受 FFT 控件影响。水平重复可能来自立体图或平铺纹理。可查看视差；它不是解码文本，也不是物理深度。",
+  "Native ROI/channel pass, independent of FFT controls. This is a conservative heuristic, not a decoder. Horizontal repetition may be a stereogram or tiled texture; disparity is not decoded text or metric depth.":
+    "按原始 ROI / 通道独立检测，不受 FFT 控件影响。这是保守启发式检测，不是解码器。水平重复可能来自立体图或平铺纹理；视差不是解码文本，也不是物理深度。",
   "Horizontal repetition also occurs in ordinary tiled texture. Disparity is a diagnostic, not proof of a stereogram or decoded text.":
     "普通平铺纹理也有水平重复。视差是诊断结果，不能证明存在立体图或解码文本。",
+  "This detector is a conservative heuristic, not a decoder. Horizontal repetition also occurs in ordinary tiled texture. Disparity is diagnostic evidence, not proof of a stereogram or decoded text.":
+    "该检测器是保守启发式方法，不是解码器。普通平铺纹理也可能产生水平重复；视差仅是诊断线索，不能证明存在立体图或解码文本。",
   "Repeated structure is not proof of hidden text.":
     "重复结构不是隐藏文本的证据。",
   "JPEG blocks, resizing, scanlines, moire and ordinary textures may produce peaks.":
@@ -40,6 +42,10 @@ export const messages: Record<string, string> = {
   "Invalid ROI.": "无效的 ROI。",
   "Unsupported preset schema.": "不支持的预设格式。",
   "Invalid preset JSON.": "预设不是有效的 JSON。",
+  "Invalid stereogram period range: minimum must not exceed maximum.":
+    "立体图周期范围无效：最小值不能大于最大值。",
+  "Invalid stereogram separation range: minimum must not exceed maximum.":
+    "立体图局部分离范围无效：最小值不能大于最大值。",
   "Malformed JPEG marker.": "JPEG 标记损坏。",
   "Unsupported or corrupt image. Choose a valid PNG or JPEG.":
     "不支持的图像或文件已损坏，请选择有效的 PNG 或 JPEG。",

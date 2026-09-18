@@ -44,6 +44,10 @@ export function createReport(
           prominence: stereo.prominence,
           rowSupport: stereo.rowSupport,
           sampledRows: stereo.sampledRows,
+          configuredPeriodSearch: {
+            minimumOriginalRoiPx: result.params.stereogramMinPeriodPx,
+            maximumOriginalRoiPx: result.params.stereogramMaxPeriodPx || "auto",
+          },
           periodSearch: [stereo.minPeriod, stereo.maxPeriod],
           thresholds: {
             correlation: 0.55,
@@ -56,6 +60,10 @@ export function createReport(
             method: "horizontal-window-ssd/v1",
             definition:
               "period minus local separation, at the right correspondence endpoint; not metric depth",
+            configuredSeparationSearchPeriodRatio: [
+              result.params.stereogramMinSeparationRatio,
+              result.params.stereogramMaxSeparationRatio,
+            ],
             separationSearch: [stereo.minSeparation, stereo.maxSeparation],
             windowRadius: 5,
             minimumUniqueness: 0.15,
@@ -66,7 +74,7 @@ export function createReport(
             matchedFraction: stereo.matchedFraction,
           },
           caveat:
-            "Horizontal repetition also occurs in ordinary tiled texture. Disparity is a diagnostic, not proof of a stereogram or decoded text.",
+            "This detector is a conservative heuristic, not a decoder. Horizontal repetition also occurs in ordinary tiled texture. Disparity is diagnostic evidence, not proof of a stereogram or decoded text.",
         }
       : null,
     warnings: result.warnings,

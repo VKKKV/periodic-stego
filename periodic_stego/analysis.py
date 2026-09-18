@@ -39,7 +39,8 @@ def _profile_peaks(profile: np.ndarray, *, max_items: int = 8) -> list[dict[str,
     n = len(profile)
     center = n // 2
     values = np.asarray(profile, dtype=np.float64).copy()
-    values[max(0, center - 1): min(n, center + 2)] = 0
+    dc_start, dc_stop = max(0, center - 1), min(n, center + 2)
+    values[dc_start:dc_stop] = 0
     candidates: list[tuple[float, int]] = []
     # Real-image spectra are conjugate symmetric. Use the nonpositive half,
     # including index zero (Nyquist for even lengths). At the boundary compare
@@ -58,7 +59,8 @@ def _profile_peaks(profile: np.ndarray, *, max_items: int = 8) -> list[dict[str,
             selected.append((score, index))
         if len(selected) >= max_items:
             break
-    baseline = float(np.median(values[values > 0])) if np.any(values > 0) else 1.0
+    background = np.concatenate((values[:dc_start], values[dc_stop:]))
+    baseline = float(np.median(background)) if background.size else 1.0
     result = []
     for score, index in selected:
         frequency = abs(index - center) / n
@@ -113,8 +115,9 @@ def _top_2d_peaks(power: np.ndarray, *, max_items: int = 12) -> list[dict[str, f
     cy, cx = h // 2, w // 2
     work = power.copy()
     yy, xx = np.ogrid[:h, :w]
-    work[(yy - cy) ** 2 + (xx - cx) ** 2 <= 9] = 0
-    baseline = float(np.median(work[work > 0])) if np.any(work > 0) else 1.0
+    background_mask = (yy - cy) ** 2 + (xx - cx) ** 2 > 9
+    work[~background_mask] = 0
+    baseline = float(np.median(work[background_mask])) if np.any(background_mask) else 1.0
     result = []
     radius = max(3, min(h, w) // 64)
     # Repeated vectorized maxima preserve the greedy ranking (including

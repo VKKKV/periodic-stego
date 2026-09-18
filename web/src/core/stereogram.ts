@@ -1,4 +1,5 @@
 import { fft1d } from "./fft";
+import { validateAnalysis } from "../state";
 import type { AnalysisInput, StereogramResult } from "./types";
 
 // A separate native-pixel pass: averaging random dots before matching destroys
@@ -6,7 +7,8 @@ import type { AnalysisInput, StereogramResult } from "./types";
 export function analyzeStereogram(
   input: AnalysisInput,
 ): StereogramResult | null {
-  const roi = input.params.roi ?? {
+  const params = validateAnalysis(input.params);
+  const roi = params.roi ?? {
     x: 0,
     y: 0,
     width: input.width,
@@ -15,12 +17,16 @@ export function analyzeStereogram(
   const w = roi.width,
     h = roi.height,
     n = w - 1;
-  const minPeriod = 8,
-    maxPeriod = Math.min(1024, Math.floor(n / 3));
+  const minPeriod = params.stereogramMinPeriodPx,
+    automaticMaxPeriod = Math.min(1024, Math.floor(n / 3)),
+    maxPeriod = Math.min(
+      automaticMaxPeriod,
+      params.stereogramMaxPeriodPx || automaticMaxPeriod,
+    );
   if (maxPeriod < minPeriod || h < 8) return null;
   const readRow = (y: number) => {
     const row = new Float64Array(w);
-    const channel = input.params.channel;
+    const channel = params.channel;
     for (let x = 0; x < w; x++) {
       const i = ((roi.y + y) * input.width + roi.x + x) * 4;
       row[x] =
@@ -84,8 +90,15 @@ export function analyzeStereogram(
   if (!peaks.length) return null;
   const strongest = Math.max(...peaks.map((lag) => correlations[lag]));
   const period = peaks.find((lag) => correlations[lag] >= 0.9 * strongest)!;
-  const minSeparation = Math.max(2, Math.floor(period * 0.55)),
-    maxSeparation = Math.ceil(period * 1.05);
+  const minSeparation = Math.max(
+      2,
+      Math.floor(period * params.stereogramMinSeparationRatio),
+    ),
+    maxSeparation = Math.min(
+      w - 1,
+      Math.ceil(period * params.stereogramMaxSeparationRatio),
+    );
+  if (maxSeparation < minSeparation) return null;
   // Bound local matching work as well as output memory, including wide images.
   const rowBudget = Math.max(
     1,

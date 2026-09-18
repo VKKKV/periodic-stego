@@ -39,16 +39,15 @@ def test_odd_length_endpoint_survives_conjugate_roundoff(size, phase):
     assert peaks[0]["period_pixels"] == round(size / (size // 2), 4)
 
 
-def test_pure_nyquist_peak_preserves_existing_power_baseline():
-    image = ((np.indices((32, 32))[1] % 2) * 255).astype(np.uint8)
+@pytest.mark.parametrize("axis,profile_axis", [(0, "y"), (1, "x")])
+def test_pure_nyquist_stripes_are_detected(axis, profile_axis):
+    image = ((np.indices((32, 32))[axis] % 2) * 255).astype(np.uint8)
     report = analyze_array(image)
-    assert report["spectral_profiles"]["x"] == [{
-        "frequency_cycles_per_pixel": 0.5,
-        "period_pixels": 2.0,
-        "relative_power": 1.0,
-    }]
-    # The existing median-of-positive-power heuristic is intentionally unchanged.
-    assert report["periodic_signal_detected"] is False
+    peak = report["spectral_profiles"][profile_axis][0]
+    assert peak["frequency_cycles_per_pixel"] == 0.5
+    assert peak["period_pixels"] == 2.0
+    assert peak["relative_power"] >= report["thresholds"]["profile_relative_power"]
+    assert report["periodic_signal_detected"] is True
 
 
 @pytest.mark.parametrize("axis", [0, 1])
@@ -170,7 +169,7 @@ def test_top_2d_peaks_preserve_greedy_sorted_baseline(shape):
     yy, xx = np.ogrid[:h, :w]
     work = power.copy()
     work[(yy - cy) ** 2 + (xx - cx) ** 2 <= 9] = 0
-    baseline = np.median(work[work > 0])
+    baseline = np.median(work[(yy - cy) ** 2 + (xx - cx) ** 2 > 9])
     candidates = sorted(np.argwhere(work > 0), key=lambda p: float(work[tuple(p)]), reverse=True)
     selected, expected = [], []
     radius = max(3, min(h, w) // 64)

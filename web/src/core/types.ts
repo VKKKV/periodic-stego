@@ -24,6 +24,12 @@ export interface AnalysisParams {
   minLag: number;
   acThreshold: number;
   acSeparation: number;
+  // Original ROI pixels. A zero maximum selects the automatic image-dependent bound.
+  stereogramMinPeriodPx: number;
+  stereogramMaxPeriodPx: number;
+  // Fractions of the detected period used for local correspondence matching.
+  stereogramMinSeparationRatio: number;
+  stereogramMaxSeparationRatio: number;
 }
 export interface DisplayParams {
   spectrum: "magnitude" | "power" | "log-power";
