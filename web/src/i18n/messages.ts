@@ -1,4 +1,89 @@
 export const messages: Record<string, string> = {
+  "Browser-decoded pixels are not byte-exact source pixels. Canvas can discard hidden RGB under full transparency and round semi-transparent RGB; use a raw decoder for pixel-bit steganography.":
+    "浏览器解码值不等同于源文件的逐字节像素。Canvas 可能丢弃全透明像素中的隐藏 RGB，并舍入半透明 RGB；像素位隐写应使用原始像素解码器。",
+  "LOCAL IMAGE FORENSICS WORKBENCH": "本地图像取证工作台",
+  Workflow: "工作流程",
+  "Limits and interpretation": "限制与解读",
+  "C2PA marker scanning does not parse manifests or validate signatures. A match is not proof of provenance.":
+    "C2PA 标记扫描不解析清单或验证签名；匹配不等于来源可信。",
+  "Load an image": "加载图像",
+  "Automatic analysis": "自动分析",
+  "Signal · image forensics": "信号 · 图像取证",
+  "Inspect the evidence": "检查结果",
+  "Compare · inspect · export": "对比 · 检查 · 导出",
+  "CURRENT INPUT": "当前图像",
+  Sample: "示例",
+  "Try sample": "运行示例",
+  "Try a sample": "试用示例",
+  "Choose image": "选择图像",
+  "Challenge catalog": "题目参考目录",
+  "SIGNAL ANALYSIS": "信号分析",
+  Controls: "参数",
+  "Start with the defaults. Open a section only when you need to change how the image is measured.":
+    "先使用默认参数；需要调整测量方式时再展开对应选项。",
+  WORKSPACE: "工作区",
+  "Inspect the image": "查看图像",
+  "STEP 01 · LOAD A LOCAL IMAGE": "第一步 · 加载本地图像",
+  "Find the rhythm.": "寻找重复规律。",
+  "Question the signal.": "审视图像信号。",
+  "Drop an image here, choose": "拖入图像，选择",
+  "or try a sample.": "或运行示例。",
+  "Private by design.": "本地处理，保护隐私。",
+  "Pixels stay in this browser. No account, upload, or cloud analysis.":
+    "像素保留在浏览器内，无需账号，不上传、不使用云端分析。",
+  "STEP 03 · EVIDENCE": "第三步 · 检查结果",
+  "What did we find?": "检测到了什么？",
+  "Results are signals to inspect, not automatic proof of hidden content.":
+    "结果是供检查的线索，并不自动证明存在隐藏内容。",
+  "Forensic results": "取证结果",
+  "IMAGE FORENSICS": "图像取证",
+  "LOCAL / SCREENING ONLY": "本地处理 / 仅用于筛查",
+  Method: "方法",
+  Close: "关闭",
+  "Export view": "导出当前图",
+  "Retry forensic analysis": "重试取证分析",
+  "Running local forensic analysis…": "正在运行本地图像取证…",
+  "Forensic screening ready": "图像取证筛查完成",
+  "ELA · JPEG quality 90": "ELA · JPEG 质量 90",
+  "ELA · JPEG quality 75": "ELA · JPEG 质量 75",
+  "ELA · JPEG quality 50": "ELA · JPEG 质量 50",
+  "ELA · JPEG quality 95": "ELA · JPEG 质量 95",
+  "Noise residual": "噪声残差",
+  "Luminance gradient": "亮度梯度",
+  "Luminance bands": "亮度分段伪彩色",
+  "Weighted RGB grayscale": "加权 RGB 灰度",
+  "Clone candidates": "重复块候选",
+  "Decoded working image": "解码后的工作图像",
+  "Metadata / JPEG structure": "元数据 / JPEG 结构",
+  "String extraction": "字符串提取",
+  "Forensic tool": "取证工具",
+  "Forensic diagnostic": "取证诊断图",
+  "No printable strings found.": "未发现可打印字符串。",
+  "Use as a screening signal only.": "仅用于筛查，不能据此判定真实性。",
+  "Red regions are coarse repeated-block candidates.":
+    "红色区域为粗略重复块候选。",
+  "ELA, noise and clone maps are screening signals, not authenticity verdicts.":
+    "ELA、噪声及重复块图仅提供筛查线索，不是真实性结论。",
+  "Re-encoding, resizing, platform compression and ordinary texture can create highlights.":
+    "重新编码、缩放、平台压缩和普通纹理都可能产生高亮。",
+  "Clone detection uses coarse block similarity and can produce false positives on repeated texture.":
+    "重复块检测采用粗略块相似度，重复纹理可能导致误报。",
+  "IMAGE STEGO CHALLENGES": "图像隐写题目参考",
+  "BLOG-DERIVED CATALOG": "来自博客的参考目录",
+  "Reference catalog only; listed methods are not all implemented. Assets are not downloaded automatically.":
+    "仅供参考；列出的方法尚未全部实现。不会自动下载题目资源。",
+  "Asset URL": "资源链接",
+  "JPEG re-encoding failed.": "JPEG 重新编码失败。",
+  Source: "源码",
+  License: "许可证",
+  "ELA uses a white matte for transparency and a working image capped at 2048 pixels per side.":
+    "ELA 将透明区域合成到白底，工作图像每边不超过 2048 像素。",
+  "Noise and clone screening use a working image capped at 512 pixels per side, then scale the maps back up.":
+    "噪声和重复块筛查使用每边不超过 512 像素的工作图像，再放大诊断图。",
+  "Clone screening verifies RGB block differences but uses bounded candidate sampling; repeated texture can match and small or transformed copies can be missed.":
+    "重复块筛查会核验 RGB 块差异，但候选采样有上限；重复纹理可能匹配，细小或变换后的复制可能漏检。",
+  "Printable strings are limited to 100 runs of at most 512 characters each.":
+    "可打印字符串最多显示 100 段，每段最多 512 字符。",
   "Source code": "源代码",
   "No warranty. Redistribution permitted under AGPLv3.":
     "不提供担保。可按 AGPLv3 条款再分发。",
@@ -47,16 +132,16 @@ export const messages: Record<string, string> = {
   "Invalid stereogram separation range: minimum must not exceed maximum.":
     "立体图局部分离范围无效：最小值不能大于最大值。",
   "Malformed JPEG marker.": "JPEG 标记损坏。",
-  "Unsupported or corrupt image. Choose a valid PNG or JPEG.":
-    "不支持的图像或文件已损坏，请选择有效的 PNG 或 JPEG。",
+  "Unsupported or corrupt image. Choose a valid PNG, JPEG, BMP, or GIF.":
+    "不支持的图像或文件已损坏，请选择有效的 PNG、JPEG、BMP 或 GIF。",
   "Image request superseded.": "图像请求已被新请求取代。",
   "The image file is empty.": "图像文件为空。",
   "File exceeds 32 MiB. Resize it locally before opening.":
     "文件超过 32 MiB，请在本地缩小后再打开。",
   "Image exceeds the safe decode limit (16 megapixels / 16384 px per side). Resize it locally first.":
     "图像超过安全解码上限（16 兆像素 / 每边 16384 px），请先在本地缩小。",
-  "The browser could not decode this PNG/JPEG. It may be corrupt or unsupported.":
-    "浏览器无法解码此 PNG/JPEG，文件可能损坏或不受支持。",
+  "The browser could not decode this image. It may be corrupt or unsupported.":
+    "浏览器无法解码此图像，文件可能损坏或不受支持。",
   "Canvas 2D is not supported by this browser.": "当前浏览器不支持 Canvas 2D。",
   "Unknown demo.": "未知演示。",
   "Demo PNG generation failed.": "演示 PNG 生成失败。",

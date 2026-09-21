@@ -8,10 +8,7 @@ test("license download and source notice are available in both locales", async (
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("./");
-  const license = page.getByRole("link", {
-    name: "AGPL-3.0-only",
-    exact: true,
-  });
+  const license = page.locator('a[download="LICENSE.txt"]');
   await expect(license).toHaveAttribute("download", "LICENSE.txt");
   const href = await license.getAttribute("href");
   expect(new URL(href!, page.url()).origin).toBe(new URL(page.url()).origin);
@@ -27,18 +24,14 @@ test("license download and source notice are available in both locales", async (
     true,
   );
   for (const [locale, label, notice] of [
-    [
-      "en",
-      "Source code",
-      "No warranty. Redistribution permitted under AGPLv3.",
-    ],
-    ["zh-CN", "源代码", "不提供担保。可按 AGPLv3 条款再分发。"],
+    ["en", "Source", "AGPL-3.0-only"],
+    ["zh-CN", "源码", "AGPL-3.0-only"],
   ]) {
     await page.locator("#language").selectOption(locale);
     await expect(
       page.getByRole("link", { name: label, exact: true }),
     ).toHaveAttribute("href", "https://github.com/VKKKV/periodic-stego");
-    await expect(page.locator(".legal-note")).toHaveText(notice);
+    await expect(page.locator(".legal")).toContainText(notice);
     await expect(license).toHaveAttribute("href", href!);
   }
   await page.setViewportSize({ width: 390, height: 844 });

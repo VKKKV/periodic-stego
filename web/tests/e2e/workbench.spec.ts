@@ -128,7 +128,7 @@ test("PNG drag/drop, numerical views, live controls, current exports and preset 
   );
   await expect(page.getByLabel("Window function")).toHaveValue("blackman");
   await page.screenshot({
-    path: "test-results/workstation-desktop.png",
+    path: test.info().outputPath("workstation-desktop.png"),
     fullPage: true,
   });
   expect(errors).toEqual([]);
@@ -224,11 +224,11 @@ test("small viewport, reduced motion, keyboard controls and no horizontal page o
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("./");
   await expect(page.locator("#parameters")).toBeHidden();
-  await page.getByRole("button", { name: "Parameters", exact: true }).click();
+  await page.getByRole("button", { name: "Controls", exact: true }).click();
   await expect(page.locator("#parameters")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator("#parameters")).toBeHidden();
-  await page.getByRole("button", { name: "Run demo" }).click();
+  await page.getByRole("button", { name: "Try sample", exact: true }).click();
   await ready(page);
   await page.getByRole("tab", { name: "FFT spectrum" }).click();
   expect(
@@ -237,7 +237,7 @@ test("small viewport, reduced motion, keyboard controls and no horizontal page o
     ),
   ).toBe(true);
   await page.screenshot({
-    path: "test-results/workstation-mobile.png",
+    path: test.info().outputPath("workstation-mobile.png"),
     fullPage: true,
   });
 });

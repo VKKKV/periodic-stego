@@ -7,11 +7,12 @@ test("delayed demo cannot replace a newer local image", async ({ page }) => {
   await page.evaluate(() => {
     const original = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = function (callback, ...rest) {
+      HTMLCanvasElement.prototype.toBlob = original;
       (window as any).releaseDemo = () =>
         original.call(this, callback, ...rest);
     };
   });
-  await page.getByRole("button", { name: "Run demo" }).click();
+  await page.getByRole("button", { name: "Try sample", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => Boolean((window as any).releaseDemo)))
     .toBe(true);
@@ -62,7 +63,8 @@ test("decode queue skips superseded full pixel reads", async ({ page }) => {
     CanvasRenderingContext2D.prototype.getImageData = function (
       ...args: any[]
     ) {
-      (window as any).readbacks++;
+      if (this.canvas.dataset.sourceDecode === "true")
+        (window as any).readbacks++;
       return read.apply(this, args as any);
     };
     window.createImageBitmap = ((...args: any[]) => {

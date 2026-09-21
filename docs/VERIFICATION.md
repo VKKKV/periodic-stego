@@ -2,6 +2,18 @@
 
 Verified locally on 2026-09-09 with Node 26.8.1, npm 12.0.2, Python 3.14.7 and Playwright Chromium. CI uses Node 24 and Python 3.12. This records observed results, not a claim of complete numerical or security coverage.
 
+## Forensic/HCI review — 2026-09-21
+
+This section records the current uncommitted working tree, not the deployed site. Earlier sections below are historical evidence.
+
+- `npm test`: 96 passed across 11 files; TypeScript/Vite production build, Prettier and `git diff --check` passed. Python: 38 passed.
+- Browser coverage: complete 33-case suites passed in Chromium, Firefox and WebKit. WebKit used a fresh Debian-targeted browser and dependencies inside an isolated `node:24-bookworm` container; mounting the host's incompatible cached browser was insufficient. Real macOS Safari remains untested.
+- Added regressions exercise both empty-state entry points, forensic close/reopen, language switching without resetting method selection, independent FFT/forensic status ownership, export invalidation at replacement request, keyboard tabs, 390-pixel layout, codec-error retry and delayed old-image forensic completion. A legacy 1×1 OS/2 BMP CORE fixture now loads correctly; a raw 2×1 PNG demonstrates transparent RGB loss and verifies bilingual warnings. Screenshot paths now honor Playwright's per-test output directory instead of writing into a shared source-relative directory.
+- Numerical/parser regressions cover DQT zigzag conversion and IJG quality endpoints, APP1-bounded TIFF reads, actual PNG eXIf chunks rather than payload substrings, spatial RGB clone verification, histogram-based ELA statistics, bounded strings, cancellation and unverified C2PA marker semantics.
+- A supplied 720 × 960 JPEG was actually decoded and processed at qualities 50/75/90/95. All four diagnostic maps contained nonzero differences and a quality-90 PNG downloaded successfully. One Chromium run completed both pipelines in 550 ms; quality 90 gave mean maximum-channel difference 1.0710026041666667, p95 3 and maximum 24. No page exception or external request was observed. This is a single local observation, not a portable benchmark or authenticity verdict; the supplied image is not committed.
+
+Visual review of a 390-pixel Chinese workbench screenshot and a desktop ELA panel screenshot found no overlapping controls; automated layout checks found no page-wide horizontal overflow. Dense chart labels remain small. ELA composites onto white and caps work dimensions at 2048; noise/clone maps use at most 512 pixels per side before upscaling. Cancellation is cooperative between phases, not mid-loop. Weighted RGB grayscale is not PCA, luminance bands are not an interactive level sweep, and the working image is not an extracted EXIF thumbnail. The challenge catalog remains a reference list, not a payload decoder. Canvas decode is not byte-exact: fully transparent RGB is lost and semi-transparent channels can be rounded. Raw pixel-bit steganography still requires a raw decoder; the UI explicitly warns about this limitation.
+
 ## AGPLv3 licensing and release checks
 
 The project now declares **AGPL-3.0-only** in the README, Python metadata and npm package/lock metadata. The root `LICENSE` is the complete [SPDX AGPL-3.0-only text](https://github.com/spdx/license-list-data/blob/main/text/AGPL-3.0-only.txt), byte-identical to the local system's SPDX copy (SHA-256 `d8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee`). Dependency licenses remain unchanged.

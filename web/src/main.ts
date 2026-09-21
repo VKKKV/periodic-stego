@@ -12,6 +12,8 @@ import {
 import { AnalysisJobs, type WorkerLike } from "./jobs";
 import { demoFile, loadImage, type LocalImage } from "./image";
 import { createReport, downloadJSON, downloadPNG } from "./export";
+import { analyzeForensics } from "./forensics";
+import { IMAGE_STEGO_CHALLENGES } from "./challenges";
 import { TOOL_VERSION, type AnalysisResult } from "./core/types";
 
 import { initLocale } from "./i18n";
@@ -25,6 +27,9 @@ let loading = false;
 let dirty = true;
 let loadGeneration = 0;
 let presetGeneration = 0;
+let forensicGeneration = 0;
+let forensicRun = 0;
+let forensicSource: LocalImage | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let lastError = "";
 const root = document.querySelector<HTMLElement>("#app")!;
@@ -69,10 +74,51 @@ function schedule() {
     }
   }, 150);
 }
+function cancelForensic() {
+  forensicGeneration++;
+  forensicRun++;
+  forensicSource = null;
+  ui.clearForensic();
+}
+function runForensic() {
+  if (!source || loading) return;
+  const currentSource = source;
+  const currentGeneration = forensicGeneration;
+  const currentRun = ++forensicRun;
+  const isCurrent = () =>
+    source === currentSource &&
+    !loading &&
+    currentGeneration === forensicGeneration &&
+    currentRun === forensicRun;
+  ui.setForensicState("running", "Running local forensic analysis…");
+  void analyzeForensics(currentSource, currentSource.bytes, isCurrent)
+    .then((next) => {
+      if (
+        source !== currentSource ||
+        currentGeneration !== forensicGeneration ||
+        currentRun !== forensicRun
+      )
+        return;
+      forensicSource = currentSource;
+      ui.setForensic(next);
+      ui.setForensicState("ready", "Forensic screening ready");
+    })
+    .catch((error) => {
+      if (
+        currentGeneration === forensicGeneration &&
+        currentRun === forensicRun
+      )
+        ui.setForensicState(
+          "error",
+          `Error · ${error instanceof Error ? error.message : String(error)}`,
+        );
+    });
+}
 async function openFile(file: File, generation?: number) {
   if (generation === undefined) {
     generation = ++loadGeneration;
     presetGeneration++;
+    cancelForensic();
   }
   loading = true;
   invalidate();
@@ -107,6 +153,7 @@ async function openFile(file: File, generation?: number) {
     root.dataset.image = image.meta.name;
     loading = false;
     schedule();
+    runForensic();
   } catch (error) {
     if (generation !== loadGeneration) return;
     loading = false;
@@ -167,6 +214,7 @@ const ui = mountUI(root, analysis, display, {
   onDemo: (name) => {
     const generation = ++loadGeneration;
     presetGeneration++;
+    cancelForensic();
     loading = true;
     invalidate();
     status("Generating synthetic image…", true);
@@ -234,6 +282,14 @@ const ui = mountUI(root, analysis, display, {
         .catch(() => downloadJSON(info, "periodic-stego-debug.json"));
     else downloadJSON(info, "periodic-stego-debug.json");
   },
+  onForensicRetry: runForensic,
+  onForensicExport: (canvas, name) => {
+    if (loading || forensicSource !== source || !forensicSource) return;
+    void downloadPNG(canvas, name).catch((error) => fail(error, true));
+  },
+  onChallenges: () => {
+    ui.showChallenges(IMAGE_STEGO_CHALLENGES);
+  },
 });
 const jobs = new AnalysisJobs(
   () =>
@@ -285,13 +341,16 @@ window.addEventListener("paste", (event) => {
 });
 window.addEventListener("pagehide", () => {
   loadGeneration++;
+  cancelForensic();
   invalidate();
 });
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
     loading = false;
-    if (source) schedule();
-    else
+    if (source) {
+      schedule();
+      runForensic();
+    } else
       status("Ready for a local image · choose a file or run a synthetic demo");
   }
 });

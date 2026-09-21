@@ -189,7 +189,7 @@ test("Chinese browser default works with blocked storage and narrow layout", asy
   });
   await page.goto(test.info().project.use.baseURL!);
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
-  await page.getByRole("button", { name: "运行演示" }).click();
+  await page.getByRole("button", { name: "试用示例", exact: true }).click();
   await ready(page);
   await page.getByRole("button", { name: "参数", exact: true }).click();
   await expect(page.locator("#parameters")).toBeVisible();
@@ -201,7 +201,7 @@ test("Chinese browser default works with blocked storage and narrow layout", asy
     ),
   ).toBe(true);
   await page.screenshot({
-    path: "test-results/workstation-zh-mobile.png",
+    path: test.info().outputPath("workstation-zh-mobile.png"),
     fullPage: true,
   });
   await page.locator("#language").selectOption("en");

@@ -1,0 +1,312 @@
+export type ChallengeMethod =
+  | "ela"
+  | "bitplane"
+  | "channel-anomaly"
+  | "pixel-map"
+  | "raw-bytes"
+  | "invert-bytes"
+  | "trailer"
+  | "jpeg-carve"
+  | "stereogram"
+  | "metadata"
+  | "barcode"
+  | "coordinate-map"
+  | "prime-mask"
+  | "morse-alpha";
+
+export interface ImageStegoChallenge {
+  id: string;
+  title: string;
+  source: string;
+  asset?: string;
+  formats: string[];
+  methods: ChallengeMethod[];
+  recommendedTool: string;
+  status: "verified" | "partial" | "unsolved";
+  note: string;
+}
+
+export const IMAGE_STEGO_CHALLENGES: ImageStegoChallenge[] = [
+  {
+    id: "hts-steg-01",
+    title: "HackThisSite Steg 1 · BMP sentinel bits",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-01.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/1.bmp",
+    formats: ["BMP"],
+    methods: ["raw-bytes", "channel-anomaly"],
+    recommendedTool: "raw-bytes",
+    status: "verified",
+    note: "Indexed BMP pixel bytes: two 00 sentinels delimit a 0x16/0x17 bit stream.",
+  },
+  {
+    id: "hts-steg-03",
+    title: "HackThisSite Steg 3 · minority pixel map",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-03.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/3.bmp",
+    formats: ["BMP"],
+    methods: ["pixel-map", "channel-anomaly"],
+    recommendedTool: "pixel-map",
+    status: "verified",
+    note: "Map minority channel values back to coordinates; the payload is a dot-matrix message.",
+  },
+  {
+    id: "hts-steg-04",
+    title: "HackThisSite Steg 4 · GIF trailer",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-04.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/stego4.gif",
+    formats: ["GIF"],
+    methods: ["trailer", "raw-bytes"],
+    recommendedTool: "trailer",
+    status: "verified",
+    note: "Bytes after the valid GIF trailer are the payload.",
+  },
+  {
+    id: "hts-steg-05",
+    title: "HackThisSite Steg 5 · pixel deltas",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-05.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/stego5.bmp",
+    formats: ["BMP"],
+    methods: ["channel-anomaly", "raw-bytes"],
+    recommendedTool: "channel-anomaly",
+    status: "verified",
+    note: "Small channel deltas encode a byte stream rather than a conventional LSB plane.",
+  },
+  {
+    id: "hts-steg-06",
+    title: "HackThisSite Steg 6 · PNG after IEND",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-06.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/stego6.png",
+    formats: ["PNG"],
+    methods: ["trailer", "metadata"],
+    recommendedTool: "trailer",
+    status: "verified",
+    note: "Base64 data follows IEND; in-image bit planes are noise.",
+  },
+  {
+    id: "hts-steg-07",
+    title: "HackThisSite Steg 7 · ZIP-wrapped image",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-07.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/stego7.zip",
+    formats: ["ZIP", "image"],
+    methods: ["trailer", "metadata"],
+    recommendedTool: "metadata",
+    status: "partial",
+    note: "Unpack the outer ZIP first, then analyze the contained image; the blog lacks a complete deterministic decoder.",
+  },
+  {
+    id: "hts-steg-08",
+    title: "HackThisSite Steg 8 · red-channel ASCII",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-08.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/stego8.bmp",
+    formats: ["BMP"],
+    methods: ["channel-anomaly", "raw-bytes"],
+    recommendedTool: "channel-anomaly",
+    status: "verified",
+    note: "Pixels where R differs from G=B contain one ASCII byte each.",
+  },
+  {
+    id: "hts-steg-11",
+    title: "HackThisSite Steg 11 · PNG pixel investigation",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-11.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/11.png",
+    formats: ["PNG"],
+    methods: ["bitplane", "pixel-map", "trailer"],
+    recommendedTool: "bitplane",
+    status: "unsolved",
+    note: "Run structure, bit-plane and minority-pixel checks; the blog has no verified final recovery.",
+  },
+  {
+    id: "hts-steg-12",
+    title: "HackThisSite Steg 12 · inverted pixel bytes",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-12.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/12.bmp",
+    formats: ["BMP"],
+    methods: ["invert-bytes", "raw-bytes"],
+    recommendedTool: "invert-bytes",
+    status: "verified",
+    note: "Invert indexed pixel bytes with 255-x and inspect the resulting file signature.",
+  },
+  {
+    id: "hts-steg-13",
+    title: "HackThisSite Steg 13 · BMP structure",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-13.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/13.bmp",
+    formats: ["BMP"],
+    methods: ["metadata", "raw-bytes"],
+    recommendedTool: "metadata",
+    status: "verified",
+    note: "Remove repeated junk bytes, then inspect the reconstructed stream.",
+  },
+  {
+    id: "hts-steg-14",
+    title: "HackThisSite Steg 14 · JPEG plus archive",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-14.md",
+    formats: ["JPEG", "RAR", "image"],
+    methods: ["trailer", "ela", "metadata"],
+    recommendedTool: "trailer",
+    status: "verified",
+    note: "Carve bytes after JPEG EOI; the extracted archive and low-contrast image are separate stages.",
+  },
+  {
+    id: "hts-steg-15",
+    title: "HackThisSite Steg 15 · PNG investigation",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-15.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/Stego15.png",
+    formats: ["PNG"],
+    methods: ["bitplane", "trailer", "pixel-map"],
+    recommendedTool: "bitplane",
+    status: "unsolved",
+    note: "The blog records structure and bit-plane investigation but no verified complete solution.",
+  },
+  {
+    id: "hts-steg-16",
+    title: "HackThisSite Steg 16 · embedded archive",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-16.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/Stego16.png",
+    formats: ["PNG", "RAR"],
+    methods: ["trailer", "metadata"],
+    recommendedTool: "trailer",
+    status: "partial",
+    note: "Inspect embedded RAR signatures; the blog records an encrypted archive without a verified password.",
+  },
+  {
+    id: "hts-steg-17",
+    title: "HackThisSite Steg 17 · JPEG-carved PDF",
+    source: "source/_drafts/HackThisSite/hackthissite-steg-17.md",
+    asset: "https://www.hackthissite.org/missions/stego/lvl/stego17.jpg",
+    formats: ["JPEG", "RAR", "PDF"],
+    methods: ["jpeg-carve", "trailer"],
+    recommendedTool: "jpeg-carve",
+    status: "partial",
+    note: "Carve the archive at the embedded signature, then continue outside the image tool.",
+  },
+  {
+    id: "hts-forensic-02",
+    title: "HackThisSite Forensic 2 · ELA",
+    source: "source/_posts/wp/HackThisSite/hackthissite-forensic-01.md",
+    formats: ["JPEG"],
+    methods: ["ela", "metadata"],
+    recommendedTool: "ela-90",
+    status: "verified",
+    note: "Compare multiple JPEG qualities and inspect the suspicious region; ELA is evidence, not a verdict.",
+  },
+  {
+    id: "hts-forensic-03",
+    title: "HackThisSite Forensic 3 · JPEG/RAR/JPEG",
+    source: "source/_drafts/HackThisSite/hackthissite-forensic-03.md",
+    formats: ["JPEG", "RAR"],
+    methods: ["jpeg-carve", "trailer", "metadata"],
+    recommendedTool: "jpeg-carve",
+    status: "verified",
+    note: "A large JPEG contains an altered archive followed by another JPEG; use byte carving.",
+  },
+  {
+    id: "wechall-lsb",
+    title: "WeChall LSB · green channel bit plane",
+    source: "source/_posts/wp/WeChall/wechall-lsb.md",
+    formats: ["PNG"],
+    methods: ["bitplane"],
+    recommendedTool: "bitplane-g2",
+    status: "verified",
+    note: "Visual bit-plane payload; dynamic sessions can change the selected bit and answer.",
+  },
+  {
+    id: "wechall-stegano-attachment",
+    title: "WeChall Stegano Attachment · JPEG/ZIP",
+    source: "source/_posts/wp/WeChall/wechall-stegano-attachment.md",
+    formats: ["JPEG", "ZIP"],
+    methods: ["trailer", "metadata"],
+    recommendedTool: "trailer",
+    status: "verified",
+    note: "The ZIP is appended after JPEG EOI.",
+  },
+  {
+    id: "wechall-training-stegano-i",
+    title: "WeChall Training Stegano I · raw BMP bytes",
+    source: "source/_posts/wp/WeChall/wechall-training-stegano-i.md",
+    asset:
+      "https://www.wechall.net/en/challenge/training/stegano1/stegano1.bmp",
+    formats: ["BMP"],
+    methods: ["raw-bytes", "metadata"],
+    recommendedTool: "raw-bytes",
+    status: "verified",
+    note: "The message is visible in raw pixel/file bytes rather than conventional LSB.",
+  },
+  {
+    id: "wechall-rauschen",
+    title: "WeChall Rauschen · autostereogram",
+    source: "source/_posts/wp/WeChall/wechall-rauschen.md",
+    formats: ["PNG"],
+    methods: ["stereogram"],
+    recommendedTool: "stereogram",
+    status: "verified",
+    note: "Use horizontal repetition/autocorrelation and disparity; this is the existing periodic-analysis path.",
+  },
+  {
+    id: "wechall-zebra",
+    title: "WeChall Zebra · stripe recovery / barcode",
+    source: "source/_posts/wp/WeChall/wechall-zebra.md",
+    asset: "https://www.wechall.net/challenge/Hirsch/Zebra/zebra.png",
+    formats: ["PNG"],
+    methods: ["barcode", "channel-anomaly"],
+    recommendedTool: "barcode",
+    status: "verified",
+    note: "Recover dense vertical bars using a per-column dark-pixel ratio, then decode the enlarged barcode.",
+  },
+  {
+    id: "wechall-vermeer",
+    title: "WeChall Vermeer · coordinate pixel map",
+    source: "source/_posts/wp/WeChall/wechall-vermeer.md",
+    formats: ["text → image"],
+    methods: ["coordinate-map", "pixel-map"],
+    recommendedTool: "coordinate-map",
+    status: "partial",
+    note: "Extract NNxNN coordinates from the dynamic challenge text and rasterize them to a canvas.",
+  },
+  {
+    id: "wechall-simply-red",
+    title: "WeChall Simply Red · prime-channel mask",
+    source: "source/_posts/wp/WeChall/wechall-simply-red.md",
+    asset: "https://www.wechall.net/challenge/anto/simply_red/op.png",
+    formats: ["PNG"],
+    methods: ["prime-mask", "pixel-map"],
+    recommendedTool: "prime-mask",
+    status: "verified",
+    note: "Keep pixels whose red-channel value is prime; the resulting mask reveals the text.",
+  },
+  {
+    id: "wechall-morsed",
+    title: "WeChall Morsed · RGBA Morse",
+    source: "source/_posts/wp/WeChall/wechall-morsed.md",
+    asset: "https://www.wechall.net/challenge/morsed/morsed.png",
+    formats: ["PNG", "RGBA"],
+    methods: ["morse-alpha", "raw-bytes"],
+    recommendedTool: "morse-alpha",
+    status: "verified",
+    note: "Decode three Morse channels: RGB values, alpha nibbles, and thresholded alpha timing.",
+  },
+  {
+    id: "suninatas-13",
+    title: "Suninatas Game 13 · JPEG appended keys",
+    source: "source/_posts/wp/Suninatas/suninatas-game-13.md",
+    formats: ["ZIP", "JPEG"],
+    methods: ["trailer", "raw-bytes"],
+    recommendedTool: "trailer",
+    status: "verified",
+    note: "The extracted image files contain appended key material after the normal JPEG stream.",
+  },
+  {
+    id: "suninatas-21",
+    title: "Suninatas Game 21 · multiple JPEGs",
+    source: "source/_posts/wp/Suninatas/suninatas-game-21.md",
+    formats: ["JPEG"],
+    methods: ["jpeg-carve", "metadata"],
+    recommendedTool: "jpeg-carve",
+    status: "verified",
+    note: "Multiple SOI markers indicate several JPEG images concatenated in one file.",
+  },
+];
+
+export function challengeById(id: string): ImageStegoChallenge | undefined {
+  return IMAGE_STEGO_CHALLENGES.find((challenge) => challenge.id === id);
+}

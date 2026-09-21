@@ -1,6 +1,7 @@
 export interface LocalImage {
   canvas: HTMLCanvasElement;
   rgba: Uint8ClampedArray;
+  bytes: Uint8Array;
   meta: {
     name: string;
     width: number;
@@ -54,7 +55,39 @@ function dimensions(bytes: Uint8Array): {
       pos += length;
     }
   }
-  throw new Error("Unsupported or corrupt image. Choose a valid PNG or JPEG.");
+  if (bytes.length >= 26 && bytes[0] === 0x42 && bytes[1] === 0x4d) {
+    const dibSize = view.getUint32(14, true);
+    if (dibSize === 12) {
+      return {
+        width: view.getUint16(18, true),
+        height: view.getUint16(20, true),
+        type: "image/bmp",
+      };
+    }
+    if (dibSize >= 40 && dibSize <= bytes.length - 14) {
+      return {
+        width: Math.abs(view.getInt32(18, true)),
+        height: Math.abs(view.getInt32(22, true)),
+        type: "image/bmp",
+      };
+    }
+  }
+  if (
+    bytes.length >= 10 &&
+    (ascii(bytes, 0, 6) === "GIF87a" || ascii(bytes, 0, 6) === "GIF89a")
+  ) {
+    return {
+      width: view.getUint16(6, true),
+      height: view.getUint16(8, true),
+      type: "image/gif",
+    };
+  }
+  throw new Error(
+    "Unsupported or corrupt image. Choose a valid PNG, JPEG, BMP, or GIF.",
+  );
+}
+function ascii(bytes: Uint8Array, start: number, length: number): string {
+  return String.fromCharCode(...bytes.subarray(start, start + length));
 }
 let decodeQueue: Promise<void> = Promise.resolve();
 export async function loadImage(
@@ -100,12 +133,13 @@ async function decodeImage(file: File, check: () => void): Promise<LocalImage> {
     bitmap = await createImageBitmap(new Blob([bytes], { type: header.type }));
   } catch {
     throw new Error(
-      "The browser could not decode this PNG/JPEG. It may be corrupt or unsupported.",
+      "The browser could not decode this image. It may be corrupt or unsupported.",
     );
   }
   try {
     check();
     const canvas = document.createElement("canvas");
+    canvas.dataset.sourceDecode = "true";
     canvas.width = bitmap.width;
     canvas.height = bitmap.height;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -121,6 +155,7 @@ async function decodeImage(file: File, check: () => void): Promise<LocalImage> {
     return {
       canvas,
       rgba,
+      bytes,
       meta: {
         name: file.name,
         width: canvas.width,

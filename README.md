@@ -1,6 +1,6 @@
 # periodic-stego
 
-A browser-local workbench for investigating periodic structure in PNG and JPEG images. Open an image, tune preprocessing and detection parameters, and compare the original, FFT spectrum, circular autocorrelation, X/Y profiles, and horizontal stereogram disparity.
+A browser-local image-forensics and periodic-structure workbench. Open an image, inspect the original, FFT spectrum, circular autocorrelation, X/Y profiles, ELA at multiple JPEG qualities, noise residuals, coarse clone candidates, JPEG/PNG structure, and horizontal stereogram disparity.
 
 [Open the workbench](https://vkkkv.github.io/periodic-stego/)
 
@@ -8,7 +8,7 @@ License: [GNU AGPLv3 only](LICENSE) (`AGPL-3.0-only`).
 
 ![FFT workbench with a synthetic 16-pixel signal](docs/workstation.png)
 
-A periodic peak is evidence of repeated structure, **not proof of hidden text**. This tool does not decode payloads or guess their encoding.
+A periodic peak is evidence of repeated structure, **not proof of hidden text**. This tool does not decode payloads or guess their encoding. Browser/Canvas pixels are not byte-exact source samples: fully transparent RGB can be discarded and semi-transparent RGB rounded. Use a raw decoder for pixel-bit steganography.
 
 ## Run the web app
 
@@ -20,7 +20,7 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite. Choose a local file, drag it onto the page, paste a PNG/JPEG from the clipboard, or select a synthetic fixture and click **Run demo**.
+Open the local URL printed by Vite. Choose a local file, drag it onto the page, paste a PNG/JPEG from the clipboard, or select a synthetic fixture and click **Try sample**.
 
 Use the **中文 / English** language selector in the header to switch the workbench language. On first visit, Chinese browser locales select Simplified Chinese; other locales fall back to English. A valid saved choice takes precedence. Switching updates controls, help, statuses, findings and plot labels without discarding the image, ROI or parameters, or rerunning analysis. The language preference is stored locally when browser storage is available; the app still works when storage is blocked. JSON report and preset keys, enum values and numerical data remain language-independent (canonical English); labeled PNG exports use the active interface language.
 
@@ -35,9 +35,12 @@ The production app is static: `web/dist/` can be served by any static host. Vite
 
 - Images are decoded and analyzed locally using Canvas and a Web Worker. There is no upload endpoint, analytics, external font, CDN dependency, or account system.
 - The host still receives normal requests for the site assets. Image data and parameters are not sent with those requests.
-- Files are limited to 32 MiB, 16 megapixels, and 16384 pixels per side before decoding. Larger files must be resized locally first. PNG and JPEG are supported, not SVG, RAW, animated image analysis, or arbitrary URLs.
+- Files are limited to 32 MiB, 16 megapixels, and 16384 pixels per side before decoding. Larger files must be resized locally first. PNG, JPEG, BMP and GIF are accepted; animated frame analysis, SVG, RAW and arbitrary URL inputs are not supported.
 - The default FFT analysis limit is 512 pixels on the longer ROI dimension, adjustable up to 1024. Area-average downsampling happens in the Worker. Padding is bounded to 2048 × 2048. Horizontal repeat matching separately samples native-resolution rows; its diagnostic raster is limited to 512 pixels per side and may be reduced further to bound matching work.
 - Images/results are held in memory, not persisted in local storage. Exported reports include the image filename, dimensions, byte size, and file modification time, but no pixels. Review this metadata before sharing reports. Debug info excludes the filename and pixel data.
+- Forensic screening starts automatically after decoding, independently of FFT parameter changes. **Forensic results** reopens the panel; errors expose a retry action. Replacing the source immediately invalidates its forensic exports. The panel provides SHA-256, JPEG quantization/quality hints, PNG chunk inventory, limited EXIF structure, multi-quality ELA, median-filter noise residuals, and coarse repeated-block candidates. These are screening signals, not authenticity verdicts.
+- ELA composites transparency onto white and caps the working image at 2048 pixels per side. Noise/clone screening caps input at 512 pixels per side and scales maps back to working dimensions; it is not native-resolution exhaustive copy detection. Printable strings are bounded to 100 runs of 512 characters. Weighted RGB grayscale is not PCA, luminance bands are not an interactive level sweep, and the decoded working image is not an extracted EXIF thumbnail.
+- The Challenge catalog is derived from the blog's image-steganography writeups. It records the input format, method, asset URL when known, and whether the writeup is verified/partial/unsolved; it does not bundle remote challenge assets or submit answers. It is a reference catalog, not an implementation of every listed method.
 
 ## Workbench controls
 
@@ -88,6 +91,7 @@ The native-row approach was informed by Jérémie Piellard's [stereogram-solver 
 - JSON report: tool version, timestamp, image metadata (no pixels), every parameter, preprocessing dimensions/scales, FFT convention, candidates, native horizontal repeat diagnostics when present, statistics, warnings and caveats.
 - PNG: original image, preprocessed data, FFT heatmap, autocorrelation heatmap, stereogram disparity when available, or the four labeled profile plots. Heatmap PNGs include axes and selected overlays/zoom; the interactive coordinate readout and findings remain in the UI/JSON report.
 - Preset JSON: all analysis/display parameters, suitable for reloading with the same input image. Presets do not contain the image.
+- Forensic PNG: the selected ELA, noise residual, or clone-candidate visualization. Metadata is displayed in the UI rather than embedded in the image.
 
 Composite report PNG export is not implemented. Browser decoding is the remaining platform-dependent part of reproduction.
 
