@@ -4,7 +4,8 @@ This document contains open work only. Completed work and test evidence belong i
 
 ## Follow-up scope
 
-- Distilled remaining methods: configurable channel-difference/anomaly and prime-value masks; pixel-coordinate/alpha traversal with optional Morse conversion; byte inversion/XOR and coordinate plotting; structured JPEG trailing-data/carving inspection; barcode recognition as a separate explicitly invoked tool. Require defined input/output contracts, size caps and reference vectors before implementing each. Do not reintroduce challenge selectors.
-- Move expensive manual raw-pixel operations to a cancellable Worker if measured UI blocking warrants it.
+- All planned generic forensic methods are implemented in the Extraction Tools panel. Remaining work is limited to measured improvements or additional reference vectors; do not reintroduce challenge selectors.
+- Keep barcode recognition explicitly invoked and capability-gated through the browser BarcodeDetector API; do not add automatic payload inference or a broad third-party decoder without a separate reviewed dependency decision.
+- Move expensive manual raw-pixel operations to a cancellable Worker only if profiling on the 16-megapixel cap demonstrates UI blocking; current bounded jobs yield and invalidate safely without requiring a second Worker.
 
 Authenticity conclusions, general automatic payload inference and C2PA signature trust are not implied by these tools. No push or publishing is part of this work.

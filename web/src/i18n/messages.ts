@@ -72,6 +72,24 @@ export const messages: Record<string, string> = {
   "Extraction ready. Preview is limited to 4096 bytes; download preserves the full result.":
     "提取完成。仅预览前 4096 字节；下载保留完整结果。",
   "Expected an integer parameter.": "参数必须为整数。",
+  "Channel difference mask": "通道差异掩码",
+  "Local anomaly mask": "局部异常掩码",
+  "Prime-value mask": "素数值掩码",
+  "Pixel coordinates / Morse": "像素坐标 / Morse",
+  "Invert / XOR bytes": "字节反转 / XOR",
+  "JPEG trailer / carving inspection": "JPEG 尾数据 / carving 检查",
+  "Barcode recognition": "条码识别",
+  "Compare with": "比较通道",
+  Threshold: "阈值",
+  "Coordinate order": "坐标顺序",
+  "Invert threshold": "反转阈值",
+  "Morse conversion": "Morse 转换",
+  "XOR value": "XOR 值",
+  "Invert bytes": "反转字节",
+  "Run an explicitly selected operation; results are bounded and do not infer a payload.":
+    "运行明确选择的操作；结果有上限，不自动推断载荷。",
+  "BarcodeDetector is unavailable in this browser":
+    "当前浏览器不提供 BarcodeDetector。",
 
   "Decoded ASCII bits after the structurally parsed GIF trailer.":
     "按 GIF 结构定位结束标记，解码其后附加的 ASCII 位流。",
