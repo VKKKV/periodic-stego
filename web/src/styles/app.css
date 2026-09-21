@@ -69,28 +69,45 @@
   justify-content: space-between;
   gap: 12px;
 }
-.challenge-panel {
+.tools-panel {
   margin: 18px 0;
   padding: 16px;
   border: 1px solid var(--rule);
   background: var(--panel);
 }
-.challenge-card {
-  border-top: 1px solid var(--rule);
-  padding: 10px 0;
+.tool-controls,
+.tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0;
 }
-.challenge-card h3 {
-  margin: 0 0 5px;
+.tools-panel label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 5px;
+  max-width: 100%;
 }
-.challenge-card p {
-  margin: 4px 0;
-  color: var(--muted);
-  font-size: 11px;
+.tools-panel input {
+  width: 145px;
 }
-.challenge-card code {
+.tools-panel select {
+  max-width: 100%;
+}
+#tool-canvas {
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+#tool-preview {
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: var(--accent);
-  font-size: 10px;
+  max-height: 320px;
+  overflow: auto;
+}
+#tool-status {
+  overflow-wrap: anywhere;
 }
 #language {
   min-width: 86px;

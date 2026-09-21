@@ -11,9 +11,13 @@ import {
 } from "./state";
 import { AnalysisJobs, type WorkerLike } from "./jobs";
 import { demoFile, loadImage, type LocalImage } from "./image";
-import { createReport, downloadJSON, downloadPNG } from "./export";
+import {
+  createReport,
+  downloadJSON,
+  downloadPNG,
+  downloadBlob,
+} from "./export";
 import { analyzeForensics } from "./forensics";
-import { IMAGE_STEGO_CHALLENGES } from "./challenges";
 import { TOOL_VERSION, type AnalysisResult } from "./core/types";
 
 import { initLocale } from "./i18n";
@@ -79,6 +83,7 @@ function cancelForensic() {
   forensicRun++;
   forensicSource = null;
   ui.clearForensic();
+  ui.setToolSource(null);
 }
 function runForensic() {
   if (!source || loading) return;
@@ -150,6 +155,7 @@ async function openFile(file: File, generation?: number) {
     };
     ui.setControls(analysis, display);
     ui.setImage(image.canvas, image.meta);
+    ui.setToolSource(image.bytes);
     root.dataset.image = image.meta.name;
     loading = false;
     schedule();
@@ -287,8 +293,9 @@ const ui = mountUI(root, analysis, display, {
     if (loading || forensicSource !== source || !forensicSource) return;
     void downloadPNG(canvas, name).catch((error) => fail(error, true));
   },
-  onChallenges: () => {
-    ui.showChallenges(IMAGE_STEGO_CHALLENGES);
+  onForensicBytes: (bytes, name) => {
+    if (loading || forensicSource !== source || !forensicSource) return;
+    downloadBlob(new Blob([bytes.slice()], { type: "image/jpeg" }), name);
   },
 });
 const jobs = new AnalysisJobs(
@@ -348,6 +355,7 @@ window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
     loading = false;
     if (source) {
+      ui.setToolSource(source.bytes);
       schedule();
       runForensic();
     } else

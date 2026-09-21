@@ -2,6 +2,26 @@
 
 Verified locally on 2026-09-09 with Node 26.8.1, npm 12.0.2, Python 3.14.7 and Playwright Chromium. CI uses Node 24 and Python 3.12. This records observed results, not a claim of complete numerical or security coverage.
 
+## Tool-only extraction and native PNG — 2026-09-21
+
+Current working tree: the challenge catalog, challenge IDs, answer-oriented decoders and embedded real challenge fixtures were removed after distilling their reusable operations. The previous section below is historical, not current product coverage.
+
+- **448 unit tests across 16 files** pass, including **123 synthetic generic-extraction cases** plus native PNG and configurable bitstream tests. TypeScript/Vite production build passes.
+- Chromium and Firefox: **40 current cases each passed** (39-case full runs plus the added gated cancellation case); WebKit: **40 passed** in a complete fixed-build container run. An earlier WebKit run had one intermittent existing demo/preset-race failure while the preview build was being updated; the isolated repeat passed without changing that test. Python: **38 passed**; formatting and `git diff --check` passed. Raw PNG tests exercise hidden RGB under alpha zero (`[1,2,3,0,101,51,201,128]`), five filters, all five supported 8-bit color types, PLTE/tRNS, CRC/order/bounds, decompression caps and cancellation. The browser bitstream download preserves the expected byte `0xae`; parameter/source changes disable stale exports.
+- PNG/GIF containers are traversed to their structural end; extraction supports raw, ASCII bits and strict Base64. Indexed BMP sentinel extraction exposes bit symbols, packing and optional insertion, with no payload-length or silent repair assumptions. UI has methods and parameters only.
+- Native PNG is deliberately limited to non-interlaced 8-bit samples. Packed/16-bit, Adam7, APNG and files with bytes following IEND are rejected; use the separate trailer tool for trailing data. No Canvas fallback occurs. Automatic screening remains browser-decoded; native pixel decoding is explicit/manual.
+
+## Historical: PCA, EXIF and local challenge extraction — 2026-09-21
+
+Implemented after signed baseline `0b721da` according to [the development plan](FORENSIC-DEVELOPMENT.md). These changes are local development, not a deployment claim.
+
+- Web unit tests: **282 passed across 14 files**, including 38 PCA, 62 EXIF-thumbnail and 86 challenge-decoder cases. Production TypeScript/Vite build and Prettier passed. Python remains **38 passed**.
+- All **37 cases per browser** passed in Chromium, Firefox and Debian-container WebKit. New E2E covers three PCA components and PNG exports, locale preservation, generated little/big-endian EXIF JPEG preview and byte-identical thumbnail downloads, missing-thumbnail cleanup, PNG payload extraction/download and source-replacement invalidation.
+- At that stage, three actual HTS Steg 1/4/6 fixtures were losslessly embedded with SHA-256 assertions in the decoder test file. Beyond unit coverage, Chromium and Firefox each opened every fixture, invoked the catalog action, matched the source-documented text and downloaded byte-identical decoded payloads. No answer is embedded in production decoder code. No remote submission was performed.
+- Chinese desktop PCA and 390-pixel extraction screenshots were visually reviewed; no overlapping controls were seen, and the narrow page had no horizontal overflow. A grayscale sample's PC2 black map was consistent with zero explained variance, not a rendering failure.
+
+PCA uses decoded white-matted RGB at a maximum 2048-pixel side, not native source bytes or the FFT ROI; each component has its own min/max scaling. EXIF extraction supports explicitly referenced JPEG IFD1 thumbnails only; extraction validity is separate from browser decoding. Catalog methods beyond the three supported byte rules remain unimplemented. C2PA verification, raw-pixel bit-plane fidelity, general payload inference and authenticity conclusions remain outside this slice.
+
 ## Forensic/HCI review — 2026-09-21
 
 This section records the current uncommitted working tree, not the deployed site. Earlier sections below are historical evidence.

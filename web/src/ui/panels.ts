@@ -14,7 +14,7 @@ import { drawProfiles } from "../render/profile";
 import { disparityCanvas } from "../render/disparity";
 import { bindStaticText, getLocale, setLocale, t } from "../i18n";
 import type { ForensicAnalysis } from "../forensics";
-import type { ImageStegoChallenge } from "../challenges";
+import { mountTools } from "./tools";
 import licenseUrl from "../../../LICENSE?url";
 interface Callbacks {
   onAnalysis: (p: AnalysisParams) => void;
@@ -28,7 +28,7 @@ interface Callbacks {
   onDebug: () => void;
   onForensicRetry: () => void;
   onForensicExport: (canvas: HTMLCanvasElement, name: string) => void;
-  onChallenges: () => void;
+  onForensicBytes: (bytes: Uint8Array, name: string) => void;
 }
 export function mountUI(
   root: HTMLElement,
@@ -47,7 +47,7 @@ export function mountUI(
   let images: Record<string, HTMLCanvasElement> = {};
   root.innerHTML = `<header class="masthead app-header"><div class="brand"><div><strong>PERIODIC <em>/ STEGO</em></strong><small>LOCAL IMAGE FORENSICS WORKBENCH</small></div></div><div class="header-tools"><select id="language" aria-label="Language / 语言"><option value="en" lang="en">English</option><option value="zh-CN" lang="zh-CN">中文</option></select></div></header>
     <div class="app-shell"><nav class="workflow" aria-label="Workflow"><div class="workflow-step is-active"><b>01</b><span>Load an image<small>PNG · JPEG · BMP · GIF</small></span></div><div class="workflow-line"></div><div class="workflow-step"><b>02</b><span>Automatic analysis<small>Signal · image forensics</small></span></div><div class="workflow-line"></div><div class="workflow-step"><b>03</b><span>Inspect the evidence<small>Compare · inspect · export</small></span></div></nav>
-    <div class="command-bar"><div class="source-summary"><span class="step-kicker">CURRENT INPUT</span><strong id="image-meta">No image loaded</strong><span id="status" data-testid="status" role="status">Ready for a local image</span></div><div class="command-actions"><button type="button" id="open-image-button" class="primary">Open image</button><input id="image-file" type="file" accept="image/png,image/jpeg,image/bmp,image/gif" hidden><label class="demo-control">Sample <select id="demo" aria-label="Synthetic fixture"><option value="vertical">Vertical pattern</option><option value="horizontal">Horizontal pattern</option><option value="both">Cross pattern</option><option value="noise">Noise only</option><option value="constant">Constant</option></select></label><button id="demo-button" type="button">Try sample</button><button id="challenges-button" type="button">Challenge catalog</button><button id="parameters-toggle" aria-expanded="false" aria-controls="parameters">Controls</button></div></div>
+    <div class="command-bar"><div class="source-summary"><span class="step-kicker">CURRENT INPUT</span><strong id="image-meta">No image loaded</strong><span id="status" data-testid="status" role="status">Ready for a local image</span></div><div class="command-actions"><button type="button" id="open-image-button" class="primary">Open image</button><input id="image-file" type="file" accept="image/png,image/jpeg,image/bmp,image/gif" hidden><label class="demo-control">Sample <select id="demo" aria-label="Synthetic fixture"><option value="vertical">Vertical pattern</option><option value="horizontal">Horizontal pattern</option><option value="both">Cross pattern</option><option value="noise">Noise only</option><option value="constant">Constant</option></select></label><button id="demo-button" type="button">Try sample</button><button id="tools-button" type="button">Extraction tools</button><button id="parameters-toggle" aria-expanded="false" aria-controls="parameters">Controls</button></div></div>
     <div class="workstation"><aside id="parameters"><div class="panel-intro"><span class="step-kicker">SIGNAL ANALYSIS</span><h2>Controls</h2><p>Start with the defaults. Open a section only when you need to change how the image is measured.</p></div>${controlsHTML()}</aside><main class="workspace"><div id="error" role="alert" hidden></div><div class="result-toolbar"><div><span class="step-kicker">WORKSPACE</span><strong>Inspect the image</strong></div><div class="export-actions"><button type="button" id="forensic-toggle" aria-controls="forensic-panel" aria-expanded="false" disabled>Forensic results</button><select aria-label="Export diagnostic" id="export-select"><option value="report">JSON report</option><option value="fft">FFT PNG</option><option value="autocorrelation">Autocorrelation PNG</option><option value="profiles">Profiles PNG</option><option value="preprocessed">Preprocessed PNG</option><option value="original">Original PNG</option><option value="stereogram" disabled>Stereogram disparity PNG</option></select><button id="export-button" type="button">Export</button></div></div><div class="view-tabs" role="tablist" aria-label="Image views">${[
       ["original", "Original"],
       ["preprocessed", "Preprocessed"],
@@ -61,11 +61,12 @@ export function mountUI(
       )
       .join("")}</div>
     <div class="canvas-stage" id="image-panel" role="tabpanel" aria-labelledby="view-original" data-testid="drop-zone"><div id="empty"><span class="eyebrow">STEP 01 · LOAD A LOCAL IMAGE</span><h1>Find the rhythm.<br><span>Question the signal.</span></h1><p>Drop an image here, choose <b>Open image</b>, or try a sample.</p><div class="empty-actions"><button type="button" id="empty-image-button" class="primary">Choose image</button><input type="file" accept="image/png,image/jpeg,image/bmp,image/gif" hidden><button type="button" id="empty-sample">Try a sample</button></div><p class="privacy"><b>Private by design.</b> Pixels stay in this browser. No account, upload, or cloud analysis.</p></div><canvas id="main-canvas" data-testid="main-canvas" aria-label="Interactive image diagnostic" hidden></canvas></div>
-    <div class="forensic-panel" id="forensic-panel" hidden><div class="section-title"><span>IMAGE FORENSICS <small>LOCAL / SCREENING ONLY</small></span><button type="button" id="forensic-close">Close</button></div><p id="forensic-status" role="status" data-state="idle"></p><button type="button" id="forensic-retry" hidden>Retry forensic analysis</button><div class="forensic-toolbar"><label>Method <select id="forensic-tool" aria-label="Forensic tool"><option value="ela-90">ELA · JPEG quality 90</option><option value="ela-75">ELA · JPEG quality 75</option><option value="ela-50">ELA · JPEG quality 50</option><option value="ela-95">ELA · JPEG quality 95</option><option value="noise">Noise residual</option><option value="gradient">Luminance gradient</option><option value="level-sweep">Luminance bands</option><option value="pca">Weighted RGB grayscale</option><option value="clone">Clone candidates</option><option value="thumbnail">Decoded working image</option><option value="metadata">Metadata / JPEG structure</option><option value="strings">String extraction</option></select></label><button type="button" id="forensic-export">Export view</button></div><div class="forensic-grid"><canvas id="forensic-canvas" aria-label="Forensic diagnostic" hidden></canvas><pre id="forensic-meta"></pre></div><ul id="forensic-warnings"></ul></div>
-    <div class="challenge-panel" id="challenge-panel" hidden><div class="section-title"><span>IMAGE STEGO CHALLENGES <small>BLOG-DERIVED CATALOG</small></span><button type="button" id="challenge-close">Close</button></div><p class="hint">Reference catalog only; listed methods are not all implemented. Assets are not downloaded automatically.</p><div id="challenge-list"></div></div>
+    <div class="forensic-panel" id="forensic-panel" hidden><div class="section-title"><span>IMAGE FORENSICS <small>LOCAL / SCREENING ONLY</small></span><button type="button" id="forensic-close">Close</button></div><p id="forensic-status" role="status" data-state="idle"></p><button type="button" id="forensic-retry" hidden>Retry forensic analysis</button><div class="forensic-toolbar"><label>Method <select id="forensic-tool" aria-label="Forensic tool"><option value="ela-90">ELA · JPEG quality 90</option><option value="ela-75">ELA · JPEG quality 75</option><option value="ela-50">ELA · JPEG quality 50</option><option value="ela-95">ELA · JPEG quality 95</option><option value="noise">Noise residual</option><option value="gradient">Luminance gradient</option><option value="level-sweep">Luminance bands</option><option value="pca">RGB PCA · PC1</option><option value="pca-2">RGB PCA · PC2</option><option value="pca-3">RGB PCA · PC3</option><option value="exif-thumbnail">EXIF thumbnail</option><option value="clone">Clone candidates</option><option value="thumbnail">Decoded working image</option><option value="metadata">Metadata / JPEG structure</option><option value="strings">String extraction</option></select></label><button type="button" id="forensic-export">Export view</button></div><div class="forensic-grid"><canvas id="forensic-canvas" aria-label="Forensic diagnostic" hidden></canvas><pre id="forensic-meta"></pre></div><ul id="forensic-warnings"></ul></div>
+    <section class="tools-panel" id="tools-panel" hidden></section>
     <div class="readout"><output id="cursor">Move over a plot for coordinates and values</output><span id="units">original pixels</span></div><div class="section-title profile-heading"><span>AXIS PROFILES <small>FFT / CIRCULAR AUTOCORRELATION</small></span></div><div class="profiles"><canvas id="profile-canvas" data-testid="profile-canvas" aria-label="X and Y FFT and autocorrelation profiles" hidden></canvas><p id="profile-empty" class="hint">Profiles appear after an image is analyzed.</p></div><footer><button id="debug" type="button">Copy debug info</button><div class="legal"><span>AGPL-3.0-only</span> · <a href="${licenseUrl}" download="LICENSE.txt">License</a> · <a href="https://github.com/VKKKV/periodic-stego" target="_blank" rel="noopener noreferrer">Source</a></div></footer></main>
     <aside class="findings"><div class="findings-intro"><span class="step-kicker">STEP 03 · EVIDENCE</span><h2>What did we find?</h2><p>Results are signals to inspect, not automatic proof of hidden content.</p></div><div class="section-title">DETECTION SUMMARY <span id="candidate-count">—</span></div><p id="result-note" class="hint" hidden>Previous result · not current; wait for a successful analysis.</p><div id="verdict"><h2>Waiting for an image</h2><p>Load an image to begin.</p></div><div id="stats"></div><div id="candidates"></div><details open class="caveats"><summary>Limits and interpretation</summary><ul id="warnings"><li>JPEG blocks, resizing, scanlines and ordinary textures can produce peaks.</li><li>Confidence is signal strength, not steganography probability.</li></ul></details></aside></div></div>`;
   const localizeStatic = bindStaticText(root);
+  const tools = mountTools(root.querySelector<HTMLElement>("#tools-panel")!);
   let statusText = "",
     errorText = "",
     forensicStatusText = "",
@@ -101,26 +102,29 @@ export function mountUI(
     $<HTMLButtonElement>("#forensic-toggle").disabled = true;
     $("#forensic-toggle").setAttribute("aria-expanded", "false");
   }
+  function forensicMap(tool: string): HTMLCanvasElement | null {
+    if (!forensic) return null;
+    if (tool === "pca" || tool === "pca-2" || tool === "pca-3")
+      return forensic.pca[tool === "pca" ? 0 : tool === "pca-2" ? 1 : 2];
+    if (tool === "exif-thumbnail") return forensic.exifThumbnail.canvas ?? null;
+    if (tool.startsWith("ela-"))
+      return forensic.ela[tool.slice(4)]?.canvas ?? null;
+    return (
+      (
+        {
+          noise: forensic.noise,
+          clone: forensic.clone,
+          gradient: forensic.gradient,
+          "level-sweep": forensic.levelSweep,
+          thumbnail: forensic.thumbnail,
+        } as Record<string, HTMLCanvasElement>
+      )[tool] ?? null
+    );
+  }
   function renderForensics() {
     if (!forensic) return;
     const tool = $<HTMLSelectElement>("#forensic-tool").value;
-    const map =
-      tool === "noise"
-        ? forensic.noise
-        : tool === "clone"
-          ? forensic.clone
-          : tool.startsWith("ela-")
-            ? forensic.ela[tool.slice(4)]
-            : tool === "gradient"
-              ? forensic.gradient
-              : tool === "level-sweep"
-                ? forensic.levelSweep
-                : tool === "pca"
-                  ? forensic.pca
-                  : tool === "thumbnail"
-                    ? forensic.thumbnail
-                    : null;
-    const canvas = map && "canvas" in map ? map.canvas : map;
+    const canvas = forensicMap(tool);
     $<HTMLButtonElement>("#forensic-export").disabled =
       !canvas || forensicState !== "ready";
     forensicCanvas.hidden = !canvas;
@@ -130,23 +134,29 @@ export function mountUI(
       forensicCanvas.getContext("2d")!.drawImage(canvas, 0, 0);
     }
     $("#forensic-meta").textContent =
-      tool === "metadata"
-        ? JSON.stringify(forensic.metadata, null, 2)
-        : tool === "strings"
-          ? forensic.strings.join("\n") || t("No printable strings found.")
-          : tool.startsWith("ela-")
-            ? JSON.stringify(
-                forensic.ela[tool.slice(4)]
-                  ? (() => {
-                      const { canvas: _canvas, ...stats } =
-                        forensic.ela[tool.slice(4)];
-                      return { quality: tool.slice(4), ...stats };
-                    })()
-                  : {},
-                null,
-                2,
-              )
-            : `${forensic.workWidth} × ${forensic.workHeight} px\n${t(tool === "clone" ? "Red regions are coarse repeated-block candidates." : "Use as a screening signal only.")}`;
+      tool === "pca" || tool === "pca-2" || tool === "pca-3"
+        ? `${t("Centered RGB PCA; each component is independently scaled. Not an authenticity verdict.")}
+${JSON.stringify({ component: tool === "pca" ? 1 : Number(tool.slice(4)), width: forensic.workWidth, height: forensic.workHeight, ...forensic.pcaStats }, null, 2)}`
+        : tool === "exif-thumbnail"
+          ? `${t(forensic.exifThumbnail.status === "found" ? "Embedded EXIF JPEG thumbnail; export preserves its original bytes." : "No supported EXIF JPEG thumbnail is available.")}
+${JSON.stringify({ status: forensic.exifThumbnail.status, reason: forensic.exifThumbnail.reason ? t(forensic.exifThumbnail.reason) : undefined, offset: forensic.exifThumbnail.offset, length: forensic.exifThumbnail.length }, null, 2)}`
+          : tool === "metadata"
+            ? JSON.stringify(forensic.metadata, null, 2)
+            : tool === "strings"
+              ? forensic.strings.join("\n") || t("No printable strings found.")
+              : tool.startsWith("ela-")
+                ? JSON.stringify(
+                    forensic.ela[tool.slice(4)]
+                      ? (() => {
+                          const { canvas: _canvas, ...stats } =
+                            forensic.ela[tool.slice(4)];
+                          return { quality: tool.slice(4), ...stats };
+                        })()
+                      : {},
+                    null,
+                    2,
+                  )
+                : `${forensic.workWidth} × ${forensic.workHeight} px\n${t(tool === "clone" ? "Red regions are coarse repeated-block candidates." : "Use as a screening signal only.")}`;
     $("#forensic-warnings").replaceChildren(
       ...forensic.warnings.map((warning) => {
         const li = document.createElement("li");
@@ -154,34 +164,6 @@ export function mountUI(
         return li;
       }),
     );
-  }
-  function showChallenges(challenges: ImageStegoChallenge[]) {
-    const list = $("#challenge-list");
-    list.replaceChildren(
-      ...challenges.map((challenge) => {
-        const article = document.createElement("article");
-        article.className = "challenge-card";
-        const title = document.createElement("h3");
-        title.textContent = challenge.title;
-        const meta = document.createElement("p");
-        meta.textContent = `${challenge.status.toUpperCase()} · ${challenge.formats.join(" / ")} · ${challenge.methods.join(", ")}`;
-        const note = document.createElement("p");
-        note.textContent = challenge.note;
-        const source = document.createElement("code");
-        source.textContent = challenge.source;
-        article.append(title, meta, note, source);
-        if (challenge.asset) {
-          const link = document.createElement("a");
-          link.href = challenge.asset;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.textContent = "Asset URL";
-          article.append(document.createTextNode(" · "), link);
-        }
-        return article;
-      }),
-    );
-    $("#challenge-panel").hidden = false;
   }
   function syncStereoView() {
     const available = Boolean(result?.stereogram);
@@ -344,18 +326,14 @@ export function mountUI(
       callbacks.onForensicRetry();
       return;
     }
-    if (button.id === "challenges-button") {
-      callbacks.onChallenges();
+    if (button.id === "tools-button") {
+      tools.open();
       return;
     }
     if (button.id === "forensic-close") {
       $("#forensic-panel").hidden = true;
       $("#forensic-toggle").setAttribute("aria-expanded", "false");
       $("#forensic-toggle").focus();
-      return;
-    }
-    if (button.id === "challenge-close") {
-      $("#challenge-panel").hidden = true;
       return;
     }
     if (button.dataset.view) {
@@ -412,6 +390,7 @@ export function mountUI(
     $("#error").textContent = t(errorText);
     $("#forensic-status").textContent = t(forensicStatusText);
     renderForensics();
+    tools.localize();
     $("#cursor").textContent = t("Move over a plot for coordinates and values");
     profiles.removeAttribute("title");
     render();
@@ -431,24 +410,13 @@ export function mountUI(
   $("#forensic-export").onclick = () => {
     if (!forensic) return;
     const tool = $<HTMLSelectElement>("#forensic-tool").value;
-    const map =
-      tool === "noise"
-        ? forensic.noise
-        : tool === "clone"
-          ? forensic.clone
-          : tool.startsWith("ela-")
-            ? forensic.ela[tool.slice(4)]
-            : tool === "gradient"
-              ? forensic.gradient
-              : tool === "level-sweep"
-                ? forensic.levelSweep
-                : tool === "pca"
-                  ? forensic.pca
-                  : tool === "thumbnail"
-                    ? forensic.thumbnail
-                    : null;
-    const canvas = map && "canvas" in map ? map.canvas : map;
-    if (canvas)
+    const canvas = forensicMap(tool);
+    if (tool === "exif-thumbnail" && forensic.exifThumbnail.bytes && canvas)
+      callbacks.onForensicBytes(
+        forensic.exifThumbnail.bytes,
+        "periodic-stego-exif-thumbnail.jpg",
+      );
+    else if (canvas)
       callbacks.onForensicExport(canvas, `periodic-stego-${tool}.png`);
   };
   root.addEventListener("keydown", (event) => {
@@ -670,7 +638,7 @@ export function mountUI(
       forensic = next;
       renderForensics();
     },
-    showChallenges,
+    setToolSource: tools.setSource,
     getCanvas: (name: string) => {
       if (name === "profiles") return profiles;
       if (name === "original") return original;

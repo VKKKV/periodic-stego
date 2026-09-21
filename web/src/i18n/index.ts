@@ -36,6 +36,10 @@ export function setLocale(value: string) {
 export function t(text: string): string {
   if (locale === "en") return text;
   if (Object.hasOwn(catalog, text)) return catalog[text];
+  if (text.startsWith("Unsupported format: "))
+    return `不支持的格式：${t(text.slice("Unsupported format: ".length))}`;
+  if (text.startsWith("Invalid extraction: "))
+    return `提取参数或文件无效：${t(text.slice("Invalid extraction: ".length))}`;
   let m: RegExpMatchArray | null;
   if (
     (m = text.match(/^Updating · job (\d+) queued · previous result retained$/))

@@ -1,4 +1,6 @@
-import type { LocalImage } from "./image";
+import { loadImage, type LocalImage } from "./image";
+import { analyzePCA } from "./pca";
+import { extractExifThumbnail } from "./exif-thumbnail";
 
 export type ForensicTool = "ela" | "noise" | "clone";
 
@@ -34,7 +36,16 @@ export interface ForensicAnalysis {
   clone: HTMLCanvasElement;
   gradient: HTMLCanvasElement;
   levelSweep: HTMLCanvasElement;
-  pca: HTMLCanvasElement;
+  pca: HTMLCanvasElement[];
+  pcaStats: Omit<ReturnType<typeof analyzePCA>, "components">;
+  exifThumbnail: {
+    status: string;
+    reason?: string;
+    canvas?: HTMLCanvasElement;
+    bytes?: Uint8Array;
+    offset?: number;
+    length?: number;
+  };
   thumbnail: HTMLCanvasElement;
   strings: string[];
   warnings: string[];
@@ -447,26 +458,6 @@ function levelSweepCanvas(
   return canvasFromPixels(out, width, height);
 }
 
-function pcaCanvas(
-  data: Uint8ClampedArray,
-  width: number,
-  height: number,
-): HTMLCanvasElement {
-  const out = new Uint8ClampedArray(data.length);
-  for (let i = 0; i < data.length; i += 4) {
-    const value = Math.max(
-      0,
-      Math.min(
-        255,
-        Math.round(0.6 * data[i] + 0.3 * data[i + 1] + 0.1 * data[i + 2]),
-      ),
-    );
-    out[i] = out[i + 1] = out[i + 2] = value;
-    out[i + 3] = 255;
-  }
-  return canvasFromPixels(out, width, height);
-}
-
 export function printableStrings(bytes: Uint8Array): string[] {
   const strings: string[] = [];
   let run = "",
@@ -635,7 +626,40 @@ export async function analyzeForensics(
   await checkpoint();
   const levelSweep = levelSweepCanvas(original, work.width, work.height);
   await checkpoint();
-  const pca = pcaCanvas(original, work.width, work.height);
+  const { components, ...pcaStats } = analyzePCA(
+    original,
+    work.width,
+    work.height,
+  );
+  const pca = components.map((component) => {
+    const rgba = new Uint8ClampedArray(component.length * 4);
+    for (let i = 0; i < component.length; i++) {
+      rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = component[i];
+      rgba[i * 4 + 3] = 255;
+    }
+    return canvasFromPixels(rgba, work.width, work.height);
+  });
+  await checkpoint();
+  const extracted = extractExifThumbnail(bytes);
+  let exifThumbnail: ForensicAnalysis["exifThumbnail"] = extracted;
+  if (extracted.status === "found") {
+    try {
+      const thumbnail = await loadImage(
+        new File([extracted.bytes.slice()], "exif-thumbnail.jpg", {
+          type: "image/jpeg",
+        }),
+        isCurrent,
+      );
+      check();
+      exifThumbnail = { ...extracted, canvas: thumbnail.canvas };
+    } catch {
+      check();
+      exifThumbnail = {
+        status: "malformed",
+        reason: "Embedded thumbnail could not be decoded safely.",
+      };
+    }
+  }
   await checkpoint();
   const strings = printableStrings(bytes);
   check();
@@ -647,6 +671,8 @@ export async function analyzeForensics(
     gradient,
     levelSweep,
     pca,
+    pcaStats,
+    exifThumbnail,
     thumbnail: work,
     strings,
     warnings: [
@@ -654,6 +680,7 @@ export async function analyzeForensics(
       "ELA, noise and clone maps are screening signals, not authenticity verdicts.",
       "Re-encoding, resizing, platform compression and ordinary texture can create highlights.",
       "ELA uses a white matte for transparency and a working image capped at 2048 pixels per side.",
+      "PCA uses the decoded, white-matted working RGB image (at most 2048 pixels per side), not raw source pixels or the signal-analysis ROI.",
       "Noise and clone screening use a working image capped at 512 pixels per side, then scale the maps back up.",
       "Clone screening verifies RGB block differences but uses bounded candidate sampling; repeated texture can match and small or transformed copies can be missed.",
       "Printable strings are limited to 100 runs of at most 512 characters each.",
