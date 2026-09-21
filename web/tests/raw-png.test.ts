@@ -261,6 +261,25 @@ describe("raw PNG sample decoding", () => {
     ]);
   });
 
+  it("matches 16-bit tRNS samples before reducing them to output bytes", async () => {
+    const grayscale = await decodeRawPNG(
+      customPNG(1, 1, 0, 16, 0, [0, 0x12, 0x34], [trns(0x12, 0x34)]),
+    );
+    const rgb = await decodeRawPNG(
+      customPNG(
+        1,
+        1,
+        2,
+        16,
+        0,
+        [0, 0x12, 0x34, 0xab, 0xcd, 0xef, 0x01],
+        [trns(0x12, 0x34, 0xab, 0xcd, 0xef, 0x01)],
+      ),
+    );
+    expect(grayscale.rgba[3]).toBe(0);
+    expect(rgb.rgba[3]).toBe(0);
+  });
+
   it("reassembles Adam7 passes into their original pixel coordinates", async () => {
     // 3×3 grayscale image, values 1..9 in row-major order. Empty passes are omitted.
     const adam7 = [

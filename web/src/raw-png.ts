@@ -195,11 +195,12 @@ export async function decodeRawPNG(
           colorType === 6
         )
           throw new Error("Invalid PNG tRNS");
-        if (colorType === 0 && view.getUint16(start) >= 1 << bitDepth)
+        const sampleLimit = 2 ** bitDepth;
+        if (colorType === 0 && view.getUint16(start) >= sampleLimit)
           throw new Error("Invalid grayscale tRNS sample");
         if (colorType === 2) {
           for (let i = start; i < end; i += 2)
-            if (view.getUint16(i) >= 1 << bitDepth)
+            if (view.getUint16(i) >= sampleLimit)
               throw new Error("Invalid RGB tRNS sample");
         }
         transparency = data.subarray(start, end);
