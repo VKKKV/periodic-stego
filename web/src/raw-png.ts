@@ -8,6 +8,15 @@ const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, i) => {
   return value >>> 0;
 });
 const yieldTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+const ADAM7 = [
+  [0, 0, 8, 8],
+  [4, 0, 8, 8],
+  [0, 4, 4, 8],
+  [2, 0, 4, 4],
+  [0, 2, 2, 4],
+  [1, 0, 2, 2],
+  [0, 1, 1, 2],
+] as const;
 
 function paeth(a: number, b: number, c: number) {
   const p = a + b - c;
@@ -17,11 +26,21 @@ function paeth(a: number, b: number, c: number) {
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 }
 
+function passSize(size: number, start: number, step: number) {
+  return size <= start ? 0 : Math.floor((size - start + step - 1) / step);
+}
+
 /**
  * Raw, unpremultiplied PNG samples. No canvas, color management, gamma adjustment,
- * alpha compositing or resizing. Only noninterlaced 8-bit PNG is supported.
- * Memory is bounded by a 32 MiB input snapshot, 64 MiB RGBA and two scanlines;
- * inflated data is consumed incrementally, never collected in an unbounded blob.
+ * alpha compositing or resizing. Supports all PNG color types at their legal
+ * 1/2/4/8/16-bit depths and both noninterlaced and Adam7 images.
+ *
+ * Packed samples are read most-significant-bit first within each byte. 16-bit
+ * samples are big-endian and represented in RGBA by their high byte (equivalent
+ * to integer division by 256); samples below 8 bits are expanded to the full
+ * 0..255 range. This is a byte-oriented decoder, not a color-management path.
+ * Memory is bounded by a 32 MiB input snapshot, 64 MiB RGBA and one/two pass
+ * scanlines; inflated data is consumed incrementally, never collected in a blob.
  * A superseded operation rejects with an Error named AbortError.
  */
 export async function decodeRawPNG(
@@ -55,6 +74,7 @@ export async function decodeRawPNG(
   const view = new DataView(data.buffer);
   let width = 0,
     height = 0,
+    bitDepth = 0,
     colorType = -1,
     components = 0;
   let palette: Uint8Array | undefined, transparency: Uint8Array | undefined;
@@ -120,17 +140,27 @@ export async function decodeRawPNG(
           throw new RangeError(
             "PNG dimensions exceed 16384 per side / 16777216 pixel limit",
           );
-        if (data[start + 8] !== 8)
-          throw new Error("Unsupported PNG bit depth: only 8-bit supported");
+        bitDepth = data[start + 8];
         colorType = data[start + 9];
+        const legalDepths: Record<number, number[]> = {
+          0: [1, 2, 4, 8, 16],
+          2: [8, 16],
+          3: [1, 2, 4, 8],
+          4: [8, 16],
+          6: [8, 16],
+        };
         components = (
           { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 } as Record<number, number>
         )[colorType];
         if (!components) throw new Error("Unsupported PNG color type");
+        if (!legalDepths[colorType].includes(bitDepth))
+          throw new Error(
+            `Unsupported PNG bit depth ${bitDepth} for color type ${colorType}`,
+          );
         if (data[start + 10] !== 0 || data[start + 11] !== 0)
           throw new Error("Unsupported PNG compression or filter method");
-        if (data[start + 12] !== 0)
-          throw new Error("Unsupported PNG interlace (Adam7)");
+        if (data[start + 12] !== 0 && data[start + 12] !== 1)
+          throw new Error("Unsupported PNG interlace method");
         break;
       }
       case "PLTE":
@@ -147,7 +177,8 @@ export async function decodeRawPNG(
           colorType === 4 ||
           length < 3 ||
           length > 768 ||
-          length % 3
+          length % 3 ||
+          (colorType === 3 && length / 3 > 1 << bitDepth)
         )
           throw new Error("Invalid PNG PLTE");
         palette = data.subarray(start, end);
@@ -164,10 +195,12 @@ export async function decodeRawPNG(
           colorType === 6
         )
           throw new Error("Invalid PNG tRNS");
-        if (colorType !== 3) {
+        if (colorType === 0 && view.getUint16(start) >= 1 << bitDepth)
+          throw new Error("Invalid grayscale tRNS sample");
+        if (colorType === 2) {
           for (let i = start; i < end; i += 2)
-            if (view.getUint16(i) > 255)
-              throw new Error("Invalid 8-bit PNG tRNS sample");
+            if (view.getUint16(i) >= 1 << bitDepth)
+              throw new Error("Invalid RGB tRNS sample");
         }
         transparency = data.subarray(start, end);
         break;
@@ -201,9 +234,30 @@ export async function decodeRawPNG(
   await pause();
   if (typeof DecompressionStream === "undefined")
     throw new Error("Native DecompressionStream is unavailable");
-  const rowBytes = width * components;
-  // Validated dimensions bound this cap BEFORE any inflated accumulator/output allocation.
-  const expected = (rowBytes + 1) * height;
+
+  const interlaced = data[8 + 8 + 12] === 1;
+  const bitsPerPixel = components * bitDepth;
+  const filterBytes = Math.max(1, Math.ceil(bitsPerPixel / 8));
+  const passRows = (pass: number) => {
+    if (!interlaced) return { x: 0, y: 0, dx: 1, dy: 1, width, height };
+    const [x, y, dx, dy] = ADAM7[pass];
+    return {
+      x,
+      y,
+      dx,
+      dy,
+      width: passSize(width, x, dx),
+      height: passSize(height, y, dy),
+    };
+  };
+  let expected = 0;
+  for (let pass = 0; pass < (interlaced ? 7 : 1); pass++) {
+    const current = passRows(pass);
+    expected +=
+      current.width && current.height
+        ? (Math.ceil((current.width * bitsPerPixel) / 8) + 1) * current.height
+        : 0;
+  }
   let chunkAt = idatStart,
     payloadAt = 0,
     payloadEnd = 0,
@@ -243,17 +297,113 @@ export async function decodeRawPNG(
     },
     { highWaterMark: 0 },
   );
+
   const reader = compressed
     .pipeThrough(new DecompressionStream("deflate"))
     .getReader();
   let rgba: Uint8ClampedArray | undefined;
-  let previous = new Uint8Array(rowBytes),
-    row = new Uint8Array(rowBytes);
+  let previous = new Uint8Array(),
+    row = new Uint8Array();
   let received = 0,
+    pass = -1,
+    passY = 0,
+    passWidth = 0,
+    passHeight = 0,
+    passX = 0,
+    passYStart = 0,
+    passDX = 1,
+    passDY = 1,
+    rowBytes = 0,
     rowAt = -1,
     filter = 0,
-    y = 0,
     work = 0;
+  const advancePass = () => {
+    while (++pass < (interlaced ? 7 : 1)) {
+      const current = passRows(pass);
+      if (!current.width || !current.height) continue;
+      passWidth = current.width;
+      passHeight = current.height;
+      passX = current.x;
+      passYStart = current.y;
+      passDX = current.dx;
+      passDY = current.dy;
+      rowBytes = Math.ceil((passWidth * bitsPerPixel) / 8);
+      previous = new Uint8Array(rowBytes);
+      row = new Uint8Array(rowBytes);
+      passY = 0;
+      rowAt = -1;
+      return;
+    }
+    rowAt = -2;
+  };
+  const sample = (source: Uint8Array, pixel: number, component: number) => {
+    const index = pixel * components + component;
+    if (bitDepth < 8) {
+      const bit = index * bitDepth;
+      return (
+        (source[bit >> 3] >> (8 - bitDepth - (bit & 7))) & ((1 << bitDepth) - 1)
+      );
+    }
+    const offset = index * (bitDepth === 16 ? 2 : 1);
+    return bitDepth === 16
+      ? (source[offset] << 8) | source[offset + 1]
+      : source[offset];
+  };
+  const toByte = (value: number) =>
+    bitDepth < 8
+      ? Math.round((value * 255) / ((1 << bitDepth) - 1))
+      : value >> (bitDepth - 8);
+  const decodeRow = (source: Uint8Array, sourceY: number) => {
+    if (!rgba) rgba = new Uint8ClampedArray(width * height * 4);
+    for (let x = 0; x < passWidth; x++) {
+      const targetX = passX + x * passDX;
+      const targetY = passYStart + sourceY * passDY;
+      const target = (targetY * width + targetX) * 4;
+      let r: number,
+        g: number,
+        b: number,
+        a = 255;
+      if (colorType === 3) {
+        const index = sample(source, x, 0);
+        if (index >= palette!.length / 3)
+          throw new Error("PNG palette index out of range");
+        r = palette![index * 3];
+        g = palette![index * 3 + 1];
+        b = palette![index * 3 + 2];
+        a = transparency?.[index] ?? 255;
+      } else if (colorType === 0 || colorType === 4) {
+        const gray = sample(source, x, 0);
+        r = g = b = toByte(gray);
+        if (colorType === 4) a = toByte(sample(source, x, 1));
+        else if (
+          transparency &&
+          gray === view.getUint16(transparency.byteOffset - data.byteOffset)
+        )
+          a = 0;
+      } else {
+        const red = sample(source, x, 0);
+        const green = sample(source, x, 1);
+        const blue = sample(source, x, 2);
+        r = toByte(red);
+        g = toByte(green);
+        b = toByte(blue);
+        if (colorType === 6) a = toByte(sample(source, x, 3));
+        else if (
+          transparency &&
+          red === view.getUint16(transparency.byteOffset - data.byteOffset) &&
+          green ===
+            view.getUint16(transparency.byteOffset - data.byteOffset + 2) &&
+          blue === view.getUint16(transparency.byteOffset - data.byteOffset + 4)
+        )
+          a = 0;
+      }
+      rgba[target] = r;
+      rgba[target + 1] = g;
+      rgba[target + 2] = b;
+      rgba[target + 3] = a;
+    }
+  };
+  advancePass();
   try {
     while (true) {
       check();
@@ -264,19 +414,23 @@ export async function decodeRawPNG(
       if (value.length > expected - received)
         throw new Error("PNG decompression exceeds expected scanline length");
       received += value.length;
-      rgba ??= new Uint8ClampedArray(width * height * 4);
       for (let i = 0; i < value.length;) {
+        if (rowAt === -2)
+          throw new Error("PNG decompression exceeds expected scanline length");
         if (rowAt === -1) {
           filter = value[i++];
-          if (filter > 4) throw new Error("Invalid PNG scanline filter");
+          if (filter > 4)
+            throw new Error(
+              `Invalid PNG scanline filter ${filter} at pass ${pass}`,
+            );
           rowAt = 0;
         }
         const stop = Math.min(rowBytes, rowAt + value.length - i);
         for (; rowAt < stop; rowAt++, i++) {
-          const left = rowAt >= components ? row[rowAt - components] : 0;
+          const left = rowAt >= filterBytes ? row[rowAt - filterBytes] : 0;
           const up = previous[rowAt];
           const upperLeft =
-            rowAt >= components ? previous[rowAt - components] : 0;
+            rowAt >= filterBytes ? previous[rowAt - filterBytes] : 0;
           const prediction =
             filter === 0
               ? 0
@@ -290,48 +444,13 @@ export async function decodeRawPNG(
           row[rowAt] = (value[i] + prediction) & 255;
         }
         if (rowAt === rowBytes) {
-          for (let x = 0; x < width; x++) {
-            const source = x * components,
-              target = (y * width + x) * 4;
-            let r: number,
-              g: number,
-              b: number,
-              a = 255;
-            if (colorType === 3) {
-              const index = row[source];
-              if (index >= palette!.length / 3)
-                throw new Error("PNG palette index out of range");
-              r = palette![index * 3];
-              g = palette![index * 3 + 1];
-              b = palette![index * 3 + 2];
-              a = transparency?.[index] ?? 255;
-            } else if (colorType === 0 || colorType === 4) {
-              r = g = b = row[source];
-              if (colorType === 4) a = row[source + 1];
-              else if (transparency && r === transparency[1]) a = 0;
-            } else {
-              r = row[source];
-              g = row[source + 1];
-              b = row[source + 2];
-              if (colorType === 6) a = row[source + 3];
-              else if (
-                transparency &&
-                r === transparency[1] &&
-                g === transparency[3] &&
-                b === transparency[5]
-              )
-                a = 0;
-            }
-            rgba[target] = r;
-            rgba[target + 1] = g;
-            rgba[target + 2] = b;
-            rgba[target + 3] = a;
-          }
+          decodeRow(row, passY);
           [previous, row] = [row, previous];
-          rowAt = -1;
-          y++;
+          passY++;
+          if (passY === passHeight) advancePass();
+          else rowAt = -1;
           work += rowBytes;
-          if (y % 32 === 0 || work >= 256 * 1024) {
+          if (passY % 32 === 0 || work >= 256 * 1024) {
             work = 0;
             await pause();
           }
@@ -340,8 +459,15 @@ export async function decodeRawPNG(
       // Allow supersession while a large compressed stream produces partial rows.
       await pause();
     }
-    if (received !== expected || y !== height || !rgba)
-      throw new Error("Truncated PNG decompressed scanlines");
+    if (
+      received !== expected ||
+      rowAt >= 0 ||
+      pass !== (interlaced ? 7 : 1) ||
+      !rgba
+    )
+      throw new Error(
+        `Truncated PNG decompressed scanlines (${received}/${expected}, row=${rowAt}, pass=${pass})`,
+      );
     check();
     return { width, height, rgba };
   } catch (error) {

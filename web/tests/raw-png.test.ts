@@ -54,6 +54,22 @@ const png = (
 ) => join(signature, header(width, height, type), ...extras, idat(raw), end());
 const palette = () => chunk("PLTE", new Uint8Array([1, 2, 3, 101, 51, 201]));
 const trns = (...bytes: number[]) => chunk("tRNS", new Uint8Array(bytes));
+const customPNG = (
+  width: number,
+  height: number,
+  type: number,
+  depth: number,
+  interlace: number,
+  raw: number[],
+  extras: Uint8Array[] = [],
+) =>
+  join(
+    signature,
+    header(width, height, type, depth, interlace),
+    ...extras,
+    idat(raw),
+    end(),
+  );
 
 function filterRows(rows: number[][], bpp: number, filter: number) {
   const raw: number[] = [];
@@ -209,26 +225,85 @@ describe("raw PNG sample decoding", () => {
     source.fill(0);
     expect((await decoding).rgba).toEqual(new Uint8ClampedArray(hidden));
   });
+
+  it.each([
+    [1, 5, [0x58], [0, 255, 0, 255, 255]],
+    [2, 4, [0x1b], [0, 85, 170, 255]],
+    [4, 4, [0x05, 0xaf], [0, 85, 170, 255]],
+  ])(
+    "expands packed grayscale depth %i MSB-first samples",
+    async (depth, width, bytes, samples) => {
+      const result = await decodeRawPNG(
+        customPNG(width, 1, 0, depth, 0, [0, ...bytes]),
+      );
+      expect(Array.from(result.rgba)).toEqual(
+        samples.flatMap((value) => [value, value, value, 255]),
+      );
+    },
+  );
+
+  it("uses the high byte of big-endian 16-bit RGBA samples", async () => {
+    const result = await decodeRawPNG(
+      customPNG(
+        2,
+        1,
+        6,
+        16,
+        0,
+        [
+          0, 0x12, 0x34, 0xab, 0xcd, 0xef, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+          0x07, 0x08, 0x09, 0x0a, 0x0b,
+        ],
+      ),
+    );
+    expect(Array.from(result.rgba)).toEqual([
+      0x12, 0xab, 0xef, 0x02, 0x04, 0x06, 0x08, 0x0a,
+    ]);
+  });
+
+  it("reassembles Adam7 passes into their original pixel coordinates", async () => {
+    // 3×3 grayscale image, values 1..9 in row-major order. Empty passes are omitted.
+    const adam7 = [
+      0,
+      1, // pass 1: (0,0)
+      0,
+      3, // pass 4: (2,0)
+      0,
+      7,
+      9, // pass 5: (0,2), (2,2)
+      0,
+      2,
+      0,
+      8, // pass 6: (1,0), (1,2)
+      0,
+      4,
+      5,
+      6, // pass 7: row 1
+    ];
+    const result = await decodeRawPNG(customPNG(3, 3, 0, 8, 1, adam7));
+    expect(Array.from(result.rgba)).toEqual(
+      [1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap((value) => [
+        value,
+        value,
+        value,
+        255,
+      ]),
+    );
+  });
 });
 
 describe("PNG structural validation and bounded decompression", () => {
-  it.each([1, 2, 4, 16])(
-    "explicitly rejects unsupported depth %i",
+  it.each([1, 2, 4])(
+    "rejects depth %i when it is illegal for RGBA",
     async (depth) => {
       await expect(
         decodeRawPNG(
           join(signature, header(2, 1, 6, depth), idat([0, ...hidden]), end()),
         ),
-      ).rejects.toThrow(/bit depth.*8-bit/i);
+      ).rejects.toThrow(/bit depth.*color type/i);
     },
   );
-  it("explicitly rejects Adam7", async () => {
-    await expect(
-      decodeRawPNG(
-        join(signature, header(2, 1, 6, 8, 1), idat([0, ...hidden]), end()),
-      ),
-    ).rejects.toThrow(/Adam7/);
-  });
+
   it.each([
     [0, 1],
     [1, 0],
